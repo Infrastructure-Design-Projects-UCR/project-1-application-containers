@@ -702,11 +702,17 @@ Also the use of `podman-compose` or podman pods can be interesting for future de
 
 3. Deploy the WikiJS container:
 
+    We need to run the container with the following:
+    - ip of it network
+    - listen to the right WikiJS port
+    - use secrets
+    - set the health check to check if the service is running
+
     ```bash
     podman run --name wikijs-set-wikijs-service \
         -d \
         --network wikijs-service-set \
-        --ip 10.89.0.30 \ 
+        --ip 10.89.0.30 \
         -p 8080:3000 \
         --secret wikijs_set_wikijs_db_type,type=env,target=DB_TYPE \
         --secret wikijs_set_wikijs_db_host,type=env,target=DB_HOST \
@@ -714,6 +720,9 @@ Also the use of `podman-compose` or podman pods can be interesting for future de
         --secret wikijs_set_postgres_user,type=env,target=DB_USER \
         --secret wikijs_set_postgres_password,type=env,target=DB_PASS \
         --secret wikijs_set_postgres_db,type=env,target=DB_NAME \
+        --health-cmd="curl -f http://localhost:3000/healthz || exit 1" \
+        --health-start-period=30s \
+        --health-retries=3 \
         --restart=unless-stopped \
         wiki:2.5
     ```
