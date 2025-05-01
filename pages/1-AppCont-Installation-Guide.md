@@ -1058,85 +1058,23 @@ and
 4. Create the secrets for **Environment variables** with podman:
 
     ```bash
+    printf "your_secure_password" | podman secret create netbox_set_secret_key -
+    printf "superuser_name" | podman secret create netbox_set_superuser_name -
+    printf "superuser_email" | podman secret create netbox_set_superuser_email -
+    printf "your_secure_password" | podman secret create netbox_set_superuser_pass -
+    ```
 
+    For the rest of values we use the secrets created before in the PostgreSQL section.
+
+    ```bash
+    netbox_set_postgres_password
+    netbox_set_postgres_user
+    netbox_set_postgres_db
+    ```
 
 5. Deploy the Netbox container:
 
-    - With secrets:
-
-        ```bash
-        podman run --name netbox-set-netbox-service \
-            -d \
-            --network netbox-service-set \
-            --ip
-
-<!--
-    - Without secrets:
-
-        ```bash
-        podman run --name netbox-set-netbox-service \
-            -d \
-            --network netbox-service-set \
-            --ip 10.89.1.30 \
-            -p 8000:8000 \
-            -v netbox-set-media-data:/opt/netbox/netbox/media:Z \
-            -v netbox-set-reports-data:/opt/netbox/netbox/reports:Z \
-            -v netbox-set-scripts-data:/opt/netbox/netbox/scripts:Z \
-            -e ALLOWED_HOSTS="10.89.1.30" \
-            -e DB_NAME="netboxdb" \
-            -e DB_USER="netbox" \
-            --secret netbox_set_postgres_password,type=env,target=DB_PASSWORD \
-            -e DB_HOST="10.89.1.31" \
-            -e DB_PORT="5433" \
-            -e DB_WAIT_DEBUG=1 \
-            -e REDIS_HOST="10.89.1.32" \
-            -e REDIS_PORT="6379" \
-            #--secret netbox_set_redis_task_password,type=env,target=REDIS_PASSWORD \
-            -e REDIS_DB=0 \
-            -e REDIS_SSL=False \
-            -e REDIS_CACHE_HOST="10.89.1.33" \
-            -e REDIS_CACHE_PORT="6380" \
-            #--secret netbox_set_redis_cache_password,type=env,target=REDIS_CACHE_PASSWORD \
-            -e REDIS_CACHE_DB=1 \
-            -e REDIS_CACHE_SSL=False \
-            -e SECRET_KEY="^Juy^bAT2bmFRYVnJHVg0&YkkFyM=-PODj*4zZM@th2@C)_$Jv:" \
-            --restart=unless-stopped \
-            netbox:latest-3.2.0
-        ```
--->
-
-    - With secrets and with two Redis without password:
-
-        ```bash
-        podman run --name netbox-set-netbox-service \
-            -d \
-            --network netbox-service-set \
-            --ip 10.89.1.30 \
-            -p 8000:8000 \
-            -v netbox-set-media-data:/opt/netbox/netbox/media:Z \
-            -v netbox-set-reports-data:/opt/netbox/netbox/reports:Z \
-            -v netbox-set-scripts-data:/opt/netbox/netbox/scripts:Z \
-            -e ALLOWED_HOSTS="10.89.1.30" \
-            -e DB_NAME="netboxdb" \
-            -e DB_USER="netbox" \
-            --secret netbox_set_postgres_password,type=env,target=DB_PASSWORD \
-            -e DB_HOST="10.89.1.31" \
-            -e DB_PORT="5433" \
-            -e DB_WAIT_DEBUG=1 \
-            -e REDIS_HOST="10.89.1.32" \
-            -e REDIS_PORT="6379" \
-            -e REDIS_DB=0 \
-            -e REDIS_SSL=False \
-            -e REDIS_CACHE_HOST="10.89.1.33" \
-            -e REDIS_CACHE_PORT="6380" \
-            -e REDIS_CACHE_DB=1 \
-            -e REDIS_CACHE_SSL=False \
-            -e SECRET_KEY="^Juy^bAT2bmFRYVnJHVg0&YkkFyM=-PODj*4zZM@th2@C)_$Jv:" \
-            --restart=unless-stopped \
-            netbox:latest-3.2.0
-        ```
-
-    - With secrets and with single Redis without password:
+    - With secrets and with two Redis without password, and postgres with password:
 
         ```bash
         podman run --name netbox-set-netbox-service \
@@ -1147,31 +1085,44 @@ and
             -v netbox-set-media-data:/opt/netbox/netbox/media:Z \
             -v netbox-set-reports-data:/opt/netbox/netbox/reports:Z \
             -v netbox-set-scripts-data:/opt/netbox/netbox/scripts:Z \
-            -e ALLOWED_HOSTS="*" \
+            -e ALLOWED_HOSTS="localhost 10.0.3.11" \
             -e DB_WAIT_DEBUG=1 \
             -e DB_HOST="10.89.1.31" \
-            -e DB_USER="netbox" \
-            -e DB_NAME="netboxdb" \
+            --secret netbox_set_postgres_user,type=env,target=DB_USER \
+            --secret netbox_set_postgres_db,type=env,target=DB_NAME \
             --secret netbox_set_postgres_password,type=env,target=DB_PASSWORD \
-            -e SECRET_KEY="secretkey" \
             -e DB_PORT="5432" \
             -e REDIS_HOST="10.89.1.32" \
             -e REDIS_PORT="6379" \
-            -e SUPERUSER_NAME="admin" \
-            -e SUPERUSER_EMAIL="jorge.diazsagot@ucr.ac.cr" \
-            -e SUPERUSER_PASSWORD="mgsg2014" \
+            -e REDIS_DATABASE=0 \
+            -e REDIS_SSL=False \
+            -e REDIS_CACHE_HOST="10.89.1.33" \
+            -e REDIS_CACHE_PORT="6379" \
+            -e REDIS_CACHE_DATABASE=1 \
+            -e REDIS_CACHE_SSL=False \
             -e SKIP_SUPERUSER="false" \
+            --secret netbox_set_superuser_name,type=env,target=SUPERUSER_NAME \
+            --secret netbox_set_superuser_email,type=env,target=SUPERUSER_EMAIL \
+            --secret netbox_set_superuser_pass,type=env,target=SUPERUSER_PASSWORD \
+            --secret netbox_set_secret_key,type=env,target=SECRET_KEY \
+            --health-cmd="curl -f http://localhost:8080/login/ || exit 1" \
+            --health-start-period=90s \
+            --health-timeout=3s \
+            --health-retries=3 \
+            --health-interval=15s \
             --restart=unless-stopped \
             netbox:latest-3.2.0
         ```
 
-1. Check the Netbox container is running on designed ports and IP:
+        **NOTE**: As well as before with WikiJS we deploy the service with secrets and health check.
+
+6. Check the Netbox container is running on designed ports and IP:
 
     ```bash
     podman ps -a
     ```
 
-2. Check the Netbox logs:
+7. Check the Netbox logs:
 
     ```bash
     podman logs netbox-set-netbox-service
@@ -1200,7 +1151,6 @@ Adapter 3: **Internal Network** adapter for communication with the web applicati
 
 - This is for the `IntNetSrv` network in the diagram, to communication with service VMs.
 
-
 ### Cockpit web console
 
 We can access to all the VMs with the web console.
@@ -1210,8 +1160,6 @@ We can access to all the VMs with the web console.
 
     See the image below:
     ![alt text](../media/Installation-Guide/cockpit-add-host.png)
-
-3. 
 
 ## TIPS
 
