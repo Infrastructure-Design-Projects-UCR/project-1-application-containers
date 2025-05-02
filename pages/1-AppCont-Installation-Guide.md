@@ -38,11 +38,13 @@ Project 1: Deployment 1.
       - [WikiJS service set](#wikijs-service-set)
         - [PostgreSQL](#postgresql)
         - [WikiJS](#wikijs)
+        - [podman-compose deployment](#podman-compose-deployment)
         - [VirtualBox Backup](#virtualbox-backup)
       - [Netbox service set](#netbox-service-set)
         - [PostgreSQL](#postgresql-1)
         - [Redis](#redis)
         - [Netbox](#netbox)
+        - [podman-compose deployment](#podman-compose-deployment-1)
     - [vm-reproxy](#vm-reproxy)
       - [Oracle VirtualBox Network settings](#oracle-virtualbox-network-settings-2)
     - [Cockpit web console](#cockpit-web-console)
@@ -759,6 +761,128 @@ Also the use of `podman-compose` or podman pods can be interesting for future de
     podman logs wikijs-set-wikijs-service
     ```
 
+##### podman-compose deployment
+
+1. Install podman-compose:
+
+    ```bash
+    562  python3 -m ensurepip --user
+    563  echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+    564  source ~/.bashrc  # Apply changes
+    565  pip3 --version
+    566  pip3 install podman-compose --user
+    568  podman-compose -v
+    ```
+
+    **NOTE**: We install `podman-compose` this way because the `dnf` package is not updated enough to support secrets as we want.
+
+    ```bash
+
+2. Create the `docker-compose.yml` file:
+
+    ```bash
+    sudo nano wikijs-set-compose.yml
+    ```
+
+3. Compose file:
+
+    ```yml
+    version: '3.8'
+    services:
+      postgres:
+        image: postgres:17-alpine
+        container_name: wikijs-set-postgres-service
+        networks:
+          wikijs-service-set:
+            ipv4_address: 10.89.0.31
+        ports:
+          - "5432:5432"
+        volumes:
+          - wikijs-set-postgres-data:/var/lib/postgresql/data
+        secrets:
+          - source: wikijs_set_postgres_user
+            target: POSTGRES_USER
+            type: env
+          - source: wikijs_set_postgres_password
+            target: POSTGRES_PASSWORD
+            type: env
+          - source: wikijs_set_postgres_db
+            target: POSTGRES_DB
+            type: env
+        restart: unless-stopped
+
+      wikijs:
+        image: wiki:2.5
+        container_name: wikijs-set-wikijs-service
+        depends_on:
+          - postgres
+        networks:
+          wikijs-service-set:
+            ipv4_address: 10.89.0.30
+        ports:
+          - "8080:3000"
+        secrets:
+          - source: wikijs_set_wikijs_db_type
+            target: DB_TYPE
+            type: env
+          - source: wikijs_set_wikijs_db_host
+            target: DB_HOST
+            type: env
+          - source: wikijs_set_wikijs_db_port
+            target: DB_PORT
+            type: env
+          - source: wikijs_set_postgres_user
+            target: DB_USER
+            type: env
+          - source: wikijs_set_postgres_password
+            target: DB_PASS
+            type: env
+          - source: wikijs_set_postgres_db
+            target: DB_NAME
+            type: env
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+          start_period: 30s
+          interval: 30s
+          timeout: 5s
+          retries: 3
+        restart: unless-stopped
+
+    networks:
+      wikijs-service-set:
+        external: true
+
+    volumes:
+      wikijs-set-postgres-data:
+        external: true
+
+    secrets:
+      wikijs_set_postgres_user:
+        external: true
+      wikijs_set_postgres_password:
+        external: true
+      wikijs_set_postgres_db:
+        external: true
+      wikijs_set_wikijs_db_type:
+        external: true
+      wikijs_set_wikijs_db_host:
+        external: true
+      wikijs_set_wikijs_db_port:
+        external: true
+    ```
+
+4. Run the podman-compose command:
+
+    ```bash
+    podman-compose -f wikijs-set-compose.yml up -d
+    ```
+
+5. Check the containers are running:
+
+    ```bash
+    podman ps -a
+    ```
+
 ##### VirtualBox Backup
 
 Take a snapshot of the VM `vm-wikijs-netbox` with the PostgreSQL and WikiJS services running.
@@ -1127,6 +1251,149 @@ and
     ```bash
     podman logs netbox-set-netbox-service
     ```
+
+##### podman-compose deployment
+
+1. Create the `netbox-set-compose.yml` file:
+
+    ```bash
+    sudo nano netbox-set-compose.yml
+    ```
+
+2. Compose file:
+
+    ```yml
+    version: '3.8'
+    services:
+      postgres:
+        container_name: netbox-set-postgres-service
+        image: postgres:17-alpine
+        networks:
+          netbox-service-set:
+            ipv4_address: 10.89.1.31
+        volumes:
+          - netbox-set-postgres-data:/var/lib/postgresql/data
+        secrets:
+          - source: netbox_set_postgres_db
+            target: POSTGRES_DB
+            type: env
+          - source: netbox_set_postgres_password
+            target: POSTGRES_PASSWORD
+            type: env
+          - source: netbox_set_postgres_user
+            target: POSTGRES_USER
+            type: env
+        restart: unless-stopped
+
+      redis-tasks:
+        container_name: netbox-set-redis-tasks-service
+        image: valkey:8.0-alpine
+        networks:
+          netbox-service-set:
+            ipv4_address: 10.89.1.32
+        volumes:
+          - netbox-set-redis-task-queue-data:/data
+        command: ["valkey-server", "--appendonly", "yes"]
+        restart: unless-stopped
+
+      redis-cache:
+        container_name: netbox-set-redis-cache-service
+        image: valkey:8.0-alpine
+        networks:
+          netbox-service-set:
+            ipv4_address: 10.89.1.33
+        ports:
+          - "6380:6379"
+        command: ["valkey-server"]
+        restart: unless-stopped
+
+      netbox:
+        container_name: netbox-set-netbox-service
+        image: netbox:latest-3.2.0
+        networks:
+          netbox-service-set:
+            ipv4_address: 10.89.1.30
+        ports:
+          - "8000:8080"
+        volumes:
+          - netbox-set-media-data:/opt/netbox/netbox/media
+          - netbox-set-reports-data:/opt/netbox/netbox/reports
+          - netbox-set-scripts-data:/opt/netbox/netbox/scripts
+        environment:
+          - ALLOWED_HOSTS=localhost 10.0.3.11
+          - DB_WAIT_DEBUG=1
+          - DB_HOST=10.89.1.31
+          - DB_PORT=5432
+          - REDIS_HOST=10.89.1.32
+          - REDIS_PORT=6379
+          - REDIS_DATABASE=0
+          - REDIS_SSL=False
+          - REDIS_CACHE_HOST=10.89.1.33
+          - REDIS_CACHE_PORT=6379
+          - REDIS_CACHE_DATABASE=1
+          - REDIS_CACHE_SSL=False
+          - SKIP_SUPERUSER=false
+        secrets:
+          - source: netbox_set_postgres_user
+            target: DB_USER
+            type: env
+          - source: netbox_set_postgres_db
+            target: DB_NAME
+            type: env
+          - source: netbox_set_postgres_password
+            target: DB_PASSWORD
+            type: env
+          - source: netbox_set_superuser_name
+            target: SUPERUSER_NAME
+            type: env
+          - source: netbox_set_superuser_email
+            target: SUPERUSER_EMAIL
+            type: env
+          - source: netbox_set_superuser_pass
+            target: SUPERUSER_PASSWORD
+            type: env
+          - source: netbox_set_secret_key
+            target: SECRET_KEY
+            type: env
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8080/login/"]
+          start_period: 90s
+          interval: 15s
+          timeout: 3s
+          retries: 3
+        restart: unless-stopped
+
+    networks:
+      netbox-service-set:
+        external: true
+
+    volumes:
+      netbox-set-postgres-data:
+        external: true
+      netbox-set-redis-task-queue-data:
+        external: true
+      netbox-set-media-data:
+        external: true
+      netbox-set-reports-data:
+        external: true
+      netbox-set-scripts-data:
+        external: true
+
+    secrets:
+      netbox_set_postgres_db:
+        external: true
+      netbox_set_postgres_password:
+        external: true
+      netbox_set_postgres_user:
+        external: true
+      netbox_set_superuser_name:
+        external: true
+      netbox_set_superuser_email:
+        external: true
+      netbox_set_superuser_pass:
+        external: true
+      netbox_set_secret_key:
+        external: true
 
 ### vm-reproxy
 
