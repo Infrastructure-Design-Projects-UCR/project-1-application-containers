@@ -90,6 +90,7 @@ Subnet with the traffic of wikijs and netbox services, so then `vm-wikijs-netbox
 | nmap | Network checking. |
 | Trivy/linPEAS | Container/image scanning. |
 | SELinux | Mandatory access control. |
+| curl | Transfer data from or to a server. |
 
 ---
 
@@ -210,27 +211,49 @@ The rationale of having Cockpit installed is be able to see the machines and the
 All of these will be executed as admin user, it have wheel privileges, but any command will be run as sudo.
 
 1. We will deploy the `vm-mgmt` machine, and install all the management tools.
-    1. Install **Trivy** and **linPEAS**.
-    2. Install **Ansible**.
-    3. Configure the firewalld rules.
-    4. Configure the network interfaces.
+    1. Install **Ansible**.
+    2. Configure the firewalld rules.
+    3. Configure the network interfaces.
 2. We will deploy the `vm-proxy` machine, but we will not install anything in this machine.
 3. We will deploy the `vm-wikijs-netbox` machine, and install all the services in this machine.
     1. Pull required images.
     2. Create virtual networks for the containers.
     3. Create volumes for the containers.
     4. Run the containers with the required parameters and secret environment variables.
+    5. Use resource limits for the containers. Our lab not requires a lot of resources because we are in a lab, so we can use the following limits:
+        1. WikiJS container: 1GB RAM, 2 vCPU.
+        2. NetBox container: 1GB RAM, 2 vCPU.
+        3. Redis container: 512MB RAM, 1 vCPU.
+        4. Postgres is not listed here because it will be moved to another VM in the future.
+
+        **NOTE**: The resource limits does **not working with rootless user**, and I will keep it like this for now, security here is better than performance limit.
+
+        **NOTE**: Also the above limits were take it from the official documentation or references of the services, on which are the minimum requirements for the services to run.
+
+    6. Use health checks for the containers.
 
 **Note**: No security checking is made in the first deployment, because we are in a lab to test the integration with **Podman**.
 
 ##### Second deployment
 
-1. We will deploy all the same but with a user with limited privileges to run Podman. The above user was `wheel` user, so it creates all the containers. But anyways the above deployment was with `sudo` privileges.
-2. Enchance the security of the containers with **Trivy** and **linPEAS** in the `vm-wikijs-netbox` machine.
+1. Deploy all with `podman-compose`, `ansible` or other orchestration tool.
+    1. Use **Ansible** to deploy all the machines and the containers.
+    2. Use **podman-compose** to deploy all the containers.
+    3. Use **ansible** to configure the machines and the containers.
+
+##### Third deployment
+
+1. Deploy in `vm-reproxy` machine a `nginx` server with container.
+    1. Install **nginx** in the `vm-reproxy` machine with `podman`.
+    2. Configure the firewalld rules.
+    3. Configure the network interfaces.
+
+##### Fourth deployment
+
+1. Enchance the security of the containers and machines with **Trivy** and **linPEAS**.
     1. Remember firewalld rules for each interface.
     2. Run **Trivy** and **linPEAS** in the `vm-wikijs-netbox` machine.
     3. Modify containers listen address, to only listen to required ips and ports in groups of services.
-3. Create set of services as `pods`, so we can manage all the containers as a single units.
 
 #### 7.5. Services configuration
 
