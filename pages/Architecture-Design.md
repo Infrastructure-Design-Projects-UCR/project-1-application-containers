@@ -40,7 +40,7 @@ Will be a simple design to be able to experiment with the different tools.
 | VM Name | Purpose | OS | Resources |
 | :---- | :---- | :---- | :---- |
 | `vm-mgmt` | Host Cockpit (web UI), Podman, and security tools (Trivy, linPEAS). | Rocky Linux 9 | 2 vCPU, 1GB RAM, 8GB Storage |
-| `vm-proxy` | Reverse Proxy (NGINX) for WikiJS/Netbox (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
+| `vm-reproxy` | Reverse Proxy (NGINX) for WikiJS/Netbox (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
 | `vm-wikijs-netbox` | Host WikiJS and NetBox containers (Podman). Plus services required Redis for Netbox | Rocky Linux 9 | 4 vCPU, 2GB RAM , 8GB Storage |
 | `vm-postgres` | Postgresql for WikiJS and Netbox machines. | Rocky Linux 9 | 1 vCPU, 1GB RAM, 14GB Storage |
 | `vm-test` | Sandbox for testing other containerized services. | Rocky Linux 9 | 1 vCPU, 1GB RAM, 8GB Storage |
@@ -75,6 +75,20 @@ Subnet with the traffic of wikijs and netbox services, so then `vm-wikijs-netbox
 - In `IntNetSrv`:  
   - Allow access between services.  
   - Allow only ports 3000 (WikiJS) and 8000 (Netbox) between `vm-proxy` and `vm-wikijs-netbox`
+
+#### **3.3 Network dataflow**
+
+##### Overall Dataflow
+
+![alt text](../media/Architecture-Design/image.png)
+
+##### IntNetMgmt Dataflow
+
+![alt text](../media/Architecture-Design/image-1.png)
+
+##### IntNetSrv Dataflow
+
+![alt text](../media/Architecture-Design/image-2.png)
 
 ### **4\. Toolchain**
 
@@ -181,7 +195,7 @@ Here we have all the management tools, like **Cockpit**, **Podman** and the secu
 - **ExtNetHome**: Allow SSH (port 2222) and Cockpit (9090).
 - **IntNetMgmt**: Allow SSH (port 22) and Cockpit (9090).
 
-#### 7.2. `vm-proxy`
+#### 7.2. `vm-reproxy`
 
 #### 7.3. `vm-wikijs-netbox`
 
@@ -200,13 +214,13 @@ Here we have the services that we want to expose to the internet. The idea is to
 
 Incremental deployment plan, to be able to test the integration with **Podman** and the services.
 
-##### Pre-Deployment
+##### 7.4.1 Pre-Deployment
 
 Base image configuration already has Cockpit installed and `cockpit-podman` extension. So all the machines will have the same base image.
 
 The rationale of having Cockpit installed is be able to see the machines and the containers running in the machines with web GUI.
 
-##### First deployment
+##### 7.4.2 First deployment
 
 All of these will be executed as admin user, it have wheel privileges, but any command will be run as sudo.
 
@@ -214,7 +228,7 @@ All of these will be executed as admin user, it have wheel privileges, but any c
     1. Install **Ansible**.
     2. Configure the firewalld rules.
     3. Configure the network interfaces.
-2. We will deploy the `vm-proxy` machine, but we will not install anything in this machine.
+2. We will deploy the `vm-reproxy` machine, but we will not install anything in this machine.
 3. We will deploy the `vm-wikijs-netbox` machine, and install all the services in this machine.
     1. Pull required images.
     2. Create virtual networks for the containers.
@@ -234,21 +248,21 @@ All of these will be executed as admin user, it have wheel privileges, but any c
 
 **Note**: No security checking is made in the first deployment, because we are in a lab to test the integration with **Podman**.
 
-##### Second deployment
+##### 7.4.3 Second deployment
 
 1. Deploy all with `podman-compose`, `ansible` or other orchestration tool.
     1. Use **Ansible** to deploy all the machines and the containers.
     2. Use **podman-compose** to deploy all the containers.
     3. Use **ansible** to configure the machines and the containers.
 
-##### Third deployment
+##### 7.4.4 Third deployment
 
-1. Deploy in `vm-reproxy` machine a `nginx` server with container.
+1. Deploy in `vm-reproxy` machine with `nginx` server with container.
     1. Install **nginx** in the `vm-reproxy` machine with `podman`.
     2. Configure the firewalld rules.
     3. Configure the network interfaces.
 
-##### Fourth deployment
+##### 7.4.5 Fourth deployment
 
 1. Enchance the security of the containers and machines with **Trivy** and **linPEAS**.
     1. Remember firewalld rules for each interface.
@@ -257,32 +271,36 @@ All of these will be executed as admin user, it have wheel privileges, but any c
 
 #### 7.5. Services configuration
 
-##### 7.4.1 **Planning**
+##### 7.5.1 **Planning**
 
 ###### **On container privilages**
 
 **This lab:**
 
-- By this lab we run all as rootful user, to test the integration with **Podman**.
-
-**Future improvements**
-
-- In the future we will run all as rootless user, to have a better security posture.
+- We run all as rootless user, to have a better security posture.
 
 ###### **On container execution**
 
 **This lab:**
 
-- By this lab we run each service in a different container, and with podman common CLI.
+- We run with `podman-compose`.
 
 **Future improvements**
 
-- In future version we will run with `podman-compose`, `ansible` or other orchestration tool.
+- `Ansible`  orchertration tool with only management vm execution of playbooks to manage the containers.
 
-##### 7.4.3 **WikiJS**
+##### 7.6.3 **WikiJS**
 
 **Image**
 
 We need to get the WikiJS image from the official WikiJS repository of a stable version. The idea is maintain this version image.
 
-**Requirements**
+##### 7.5.4 **Nginx**
+
+**This lab**
+
+- We run nginx as a container in other VM and redirect the traffic to `vm-wikijs-netbox` machine.
+
+**Future improvements**
+
+- Run with SSL and ACME.
