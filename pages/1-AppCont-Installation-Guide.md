@@ -1,11 +1,22 @@
 # Installation guide
 
-Project 1: Deployment 1.
+Project 1: Deployment 3. Services + Nginx Reverse Proxy + Cockpit + Podman + Compose-Orchestrator.
+
+Reference for each deployment: Architecture-Design.md
 
 ## Introduction
 
+Course: Diseño y Operación de Infraestructura de TI.
+
+Student: Jorge Ricardo Díaz Sagot.
+
+Project 1: Application Containers.
+
+## Table of contents
+
 - [Installation guide](#installation-guide)
   - [Introduction](#introduction)
+  - [Table of contents](#table-of-contents)
   - [Prerequisites](#prerequisites)
     - [Software requirements](#software-requirements)
     - [Network requirements](#network-requirements)
