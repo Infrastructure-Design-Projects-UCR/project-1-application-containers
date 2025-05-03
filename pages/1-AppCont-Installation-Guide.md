@@ -28,10 +28,8 @@ Project 1: Deployment 1.
   - [VMs setup for the lab](#vms-setup-for-the-lab)
     - [vm-mgmt](#vm-mgmt)
       - [Oracle VirtualBox Network settings:](#oracle-virtualbox-network-settings)
-      - [Installation steps](#installation-steps)
-        - [Ansible](#ansible)
       - [Security](#security)
-      - [SSH](#ssh-1)
+        - [SSH](#ssh-1)
         - [sshuser disable bash and python](#sshuser-disable-bash-and-python)
     - [vm-wikijs-netbox](#vm-wikijs-netbox)
       - [Oracle VirtualBox Network settings](#oracle-virtualbox-network-settings-1)
@@ -45,8 +43,11 @@ Project 1: Deployment 1.
         - [Redis](#redis)
         - [Netbox](#netbox)
         - [podman-compose deployment](#podman-compose-deployment-1)
+        - [Create a screenshot on the machine](#create-a-screenshot-on-the-machine)
+      - [Security with SELinux, Trivy and LinPEAS](#security-with-selinux-trivy-and-linpeas)
     - [vm-reproxy](#vm-reproxy)
       - [Oracle VirtualBox Network settings](#oracle-virtualbox-network-settings-2)
+      - [Nginx service set](#nginx-service-set)
     - [Cockpit web console](#cockpit-web-console)
   - [TIPS](#tips)
     - [Oracle VirtualBox](#oracle-virtualbox)
@@ -74,124 +75,36 @@ Project 1: Deployment 1.
 
 ## Base image
 
-guide[admin@rocky-test-image ~]$ history
-    1  ls
-    2  ll
-    3  hostname
-    4  ping google.com
-    5  sudo dnf install nano
-    6  nmtui
-    7  sudo nmtui
-    8  sudo reboot
-    9  ip a
-   10  yum
-   11  yum --version
-   12  dnf --version
-   13  sudo yum nmap
-   14  sudo yum install nmap
-   15  time
-   16  date
-   17  sudo dnf install nmap
-   18  ping google.com
-   19  sudo nano /etc/resolv.conf
-   20  sudo dnf install nmap
-   21  sudo dnf -t upgrade
-   22  sudo dnf upgrade
-   23  sudo reboot
-   24  sudo dnf install gcc kernel-devel kernel-headers make bzip2 perl
-   25  reboot
-   26  sudo reboot
-   27  cd /run/medi
-   28  cd /run/
-   29  ll
-   30  cd media
-   31  ll
-   32  cd ..
-   33  cd media/
-   34  ll
-   35  ls
-   36  ll -a
-   37  cd
-   38  ll
-   39  ll -a
-   40  cd /run/mount/
-   41  ll
-   42  ll -a
-   43  reboot
-   44  sudo reboot
-   45  /opt/
-   46  ll
-   47  ll -a
-   48  mount
-   49  mount -l
-   50  ll
-   51  ls
-   52  getent
+1. Install some packages and upgrade:
 
-Deactivate SELinux enforcing mode:
+    ```bash
+    sudo dnf install nano
+    sudo dnf install nmap
+    sudo dnf install nmap
+    sudo dnf upgrade
+    sudo reboot
+    ```
 
-   53  sestatus
-   54  sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/'
-   55  sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
-   56  head /etc/selinux/config
-   57  cat /etc/selinux/config
-   58  sudo reboot
+2. Deactivate SELinux enforcing mode:
 
-VirtualBox Guest Additions installation:
-[Reference link used:](https://linuxconfig.org/install-virtualbox-guest-additions-on-linux-guest)
-   59  ll
-   60  cd ..
-   61  ll
-   62  cd ..
-   63  ll
-   64  cd media/
-   65  ll
-   66  cd ..
-   67  ll -a opt/
-   68  ll -a media/
-   69  ll -a mnt/
-   70  ll -a usr/
-   71  ll -a usr/share/
-   72  cd
-   73  sudo mkdir -p /mnt/cdrom
-   74  cd /mnt/cdrom/
-   75  ll
-   76  sudo mount /dev/cdrom /mnt/cdrom/
-   77  ll
-   78  cd /mnt/cdrom/
-   79  cd /dev/cdrom
-   80  cd /dev/cdrom
-   81  ll /dev/
-   82  ll /dev/cdrom
-   83  ll
-   84  pwd
-   85  sudo mount /dev/cdrom /mnt/cdrom/
-   86  cd /dev/cdrom
-   87  pwd
-   88  ll
-   89  cd 
-   90  ll
-   91  cd /dev/cdrom
-   92  ll /dev/cdrom
-   93  ll /dev/
-   94  ll | grep cd
-   95  ll /dev | grep cd
-   96  cd /mnt/cdrom/
-   97  ll
-   98  sudo bash autorun.sh
-   99  bash autorun.sh
-  100  sudo sh autorun.sh
-  101  pwd
-  102  sudo ./autorun.sh
-  103  sudo ./VBoxLinuxAdditions.run
-  104  ./VBoxLinuxAdditions.run
-  105  sudo dnf install tar bzip2 kernel-devel kernel-headers perl make elfutils-libelf-devel
-  106  pwd
-  107  sudo ./VBoxLinuxAdditions.run
-  108  sudo shutdown
-  109  ll
-  110  history
+    ```bash
+    sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
+    sudo reboot
+    ```
 
+3. VirtualBox Guest Additions installation: [Reference link used:](https://linuxconfig.org/install-virtualbox-guest-additions-on-linux-guest)
+
+    ```bash
+    sudo mkdir -p /mnt/cdrom
+    cd /mnt/cdrom/
+    sudo mount /dev/cdrom /mnt/cdrom/
+    cd /mnt/cdrom/
+    sudo dnf install tar bzip2 kernel-devel kernel-headers perl make elfutils-libelf-devel
+    sudo ./VBoxLinuxAdditions.run
+    sudo reboot
+    ```
+
+**NOTE**: remember to uninstall the extra packages installed for the VirtualBox Guest Additions installation.
 
 ## Software install Cockpit adn addons
 
@@ -363,7 +276,6 @@ history -c
 
 ## VMs setup for the lab
 
-
 ### vm-mgmt
 
 **Purpose:**
@@ -371,7 +283,6 @@ This VM es used to manage the other VMs in the lab. It is used to run the follow
 
 - Host Cockpit (web UI) with Podman and File manager addons.
 - Podman client.
-- Security tools (Trivy, linPEAS).
 - Ansible(maybe)
 - Of course, SSH client.
 
@@ -383,16 +294,11 @@ Adapter 1: NAT (for internet access) with port forwarding for SSH (2222:2222) an
 
 Adapter 2: **Internal Network** adapter for communication with the other VMs.
 
-- This is for the `IntNetMgmt` network in the diagram, to manage the other VMs.
-
-#### Installation steps
-
-##### Ansible
-
+- This is for the `IntNetMgmt` network in the diagram, to manage the other VMs. 
 
 #### Security
 
-#### SSH
+##### SSH
 
 I put banners for SSH and login.
 
@@ -1395,6 +1301,14 @@ and
       netbox_set_secret_key:
         external: true
 
+##### Create a screenshot on the machine
+
+Make a screenshot of the Netbox service and WikiJS service running with Compose.
+
+#### Security with SELinux, Trivy and LinPEAS
+
+!TODO!
+
 ### vm-reproxy
 
 **Purpose:**
@@ -1406,7 +1320,7 @@ This VM is used to run as a reverse proxy for the web application services WikiJ
 
 #### Oracle VirtualBox Network settings
 
-Adapter 1: **NAT** (for internet access) with port forwarding for WikiJS (8080:80) and Netbox (8000:80).
+Adapter 1: **Bridge** (for internet access) adapter for the VM. Not NAT Network because of proxy issues.
 
 - This is for the `ExtNetHome` network in the diagram.
 
@@ -1417,6 +1331,103 @@ Adapter 2: **Internal Network** adapter for communication with the other VMs.
 Adapter 3: **Internal Network** adapter for communication with the web applications.
 
 - This is for the `IntNetSrv` network in the diagram, to communication with service VMs.
+
+#### Nginx service set
+
+Here we are going to set up nginx as a reverse proxy for the web applications.
+
+We are going to install this bare metal as systemd service, to have both, systemd and podman services running.
+
+**NOTE**: We can use podman, it just to copy the config file and run the container in needed ports. 
+
+We need to reverse proxy the following services:
+
+- WikiJS (8080:8080)
+- Netbox (8000:8000)
+
+This services are in a different machine, so we need to set the IP address of the VM `vm-wikijs-netbox`. Connected by the `IntNetSrv` network.
+
+1. Use `nginx` image to install **Nginx**:
+
+    ```bash
+    sudo dnf install nginx -y 
+    ```
+
+2. Put the configuration file in the right place /etc/nginx/conf.d/nginx.conf:
+
+    ```bash
+    sudo nano /etc/nginx/conf.d/nginx.conf
+    ```
+
+    - config file:
+
+    ```nginx
+    events {
+            worker_connections  1024;
+    }
+
+    http {
+            #------------------------------------------------------------------
+            # Wiki.js → direct proxy_pass to 192.168.201.20:8080
+            #------------------------------------------------------------------
+            server {
+                listen 8080;
+                server_name 192.168.100.100;
+
+                location / {
+                    proxy_pass         http://192.168.201.20:8080;
+                    proxy_http_version 1.1;
+                    proxy_set_header   Host              $host;
+                    proxy_set_header   X-Real-IP         $remote_addr;
+                    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+                    proxy_set_header   X-Forwarded-Proto $scheme;
+
+                    # WebSockets support (required by Wiki.js)
+                    proxy_set_header   Upgrade           $http_upgrade;
+                    proxy_set_header   Connection        "upgrade";
+                }
+            }
+
+
+            #------------------------------------------------------------------
+            # NetBox → direct proxy_pass to 192.168.201.20:8000
+            #------------------------------------------------------------------
+            server {
+                listen 8000;
+                server_name 192.168.100.100;
+
+                # Allow large files
+                client_max_body_size 25m;
+
+                # Static assets
+                location /static/ {
+                    proxy_pass      http://192.168.201.20:8000/static/;
+                    # Cache static content in browsers
+                    expires 7d;
+                    access_log      off;
+                }
+
+                # Dynamic requests
+                location / {
+                    proxy_pass         http://192.168.201.20:8000;
+                    proxy_http_version 1.1;
+                    proxy_set_header   Host              $http_host;
+                    #proxy_set_header   X-Forwarded-Host  $host:$server_port;
+                    proxy_set_header   X-Real-IP         $remote_addr;
+                    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+                    proxy_set_header   X-Forwarded-Proto $scheme;
+
+                    # CSRF Protection, if enabled in NetBox
+                    #proxy_cookie_path / /;
+                    #proxy_cookie_flags ~ secure;
+                }
+            }
+    }
+    ```
+
+3. Remember to add all the firewall and SELinux rules needed.
+
+  !TODO!
 
 ### Cockpit web console
 
