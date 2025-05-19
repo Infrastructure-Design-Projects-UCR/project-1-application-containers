@@ -42,6 +42,7 @@ Project 1: Application Containers.
       - [Security](#security)
         - [SSH](#ssh-1)
         - [sshuser disable bash and python](#sshuser-disable-bash-and-python)
+        - [SELinux enablement and adjusments](#selinux-enablement-and-adjusments)
     - [vm-wikijs-netbox](#vm-wikijs-netbox)
       - [Oracle VirtualBox Network settings](#oracle-virtualbox-network-settings-1)
       - [WikiJS service set](#wikijs-service-set)
@@ -59,7 +60,9 @@ Project 1: Application Containers.
     - [vm-reproxy](#vm-reproxy)
       - [Oracle VirtualBox Network settings](#oracle-virtualbox-network-settings-2)
       - [Nginx service set](#nginx-service-set)
-    - [Cockpit web console](#cockpit-web-console)
+      - [Firewall rules](#firewall-rules)
+        - [public zone](#public-zone)
+        - [dmz zone](#dmz-zone)
   - [TIPS](#tips)
     - [Oracle VirtualBox](#oracle-virtualbox)
       - [See vms IP addresses](#see-vms-ip-addresses)
@@ -147,7 +150,7 @@ Also need to enable the podman socket, in `cockpit-podman` menu in **cockpit**, 
 
 Your web gui have to look like this:
 
-![alt text](../media/Installation-Guide/cockpit-podman-running.png)
+![alt text](../../media/installation-guide/cockpit-podman-running.png)
 
 #### Cockpit File manager
 
@@ -436,6 +439,91 @@ References: [text](https://linuxtldr.com/restricted-bash-shell/) [RBash](https:/
     ```
 
 - Previous steps deactivates all commands unless the `su - admin`. And the use of the `bash -r` to be able of log in with ssh and change to `admin` user.
+
+##### SELinux enablement and adjusments
+
+  315  sudo dnf install cockpit -y && sudo systemctl enable --now cockpit.socket
+  316  sudo cat /var/log/audit/audit.log | audit2why
+
+```bash
+  [admin@vm-mgmt ~]$ sudo cat /var/log/audit/audit.log | audit2why
+type=AVC msg=audit(1742490519.638:70): avc:  denied  { read } for  pid=1 comm="systemd" name="msr" dev="devtmpfs" ino=86 scontext=system_u:system_r:init_t:s0 tcontext=system_u:object_r:cpu_device_t:s0 tclass=chr_file permissive=0
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1742490530.598:103): avc:  denied  { read } for  pid=1 comm="systemd" name="msr" dev="devtmpfs" ino=86 scontext=system_u:system_r:init_t:s0 tcontext=system_u:object_r:cpu_device_t:s0 tclass=chr_file permissive=0
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1744579538.364:39): avc:  denied  { search } for  pid=852 comm="hostname" name="net" dev="proc" ino=328 scontext=system_u:system_r:cockpit_ws_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=dir permissive=1
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1744579538.364:39): avc:  denied  { read } for  pid=852 comm="hostname" name="disable_ipv6" dev="proc" ino=21567 scontext=system_u:system_r:cockpit_ws_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=file permissive=1
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1744579538.364:39): avc:  denied  { open } for  pid=852 comm="hostname" path="/proc/sys/net/ipv6/conf/all/disable_ipv6" dev="proc" ino=21567 scontext=system_u:system_r:cockpit_ws_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=file permissive=1
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1744579538.368:40): avc:  denied  { getattr } for  pid=852 comm="hostname" path="/proc/sys/net/ipv6/conf/all/disable_ipv6" dev="proc" ino=21567 scontext=system_u:system_r:cockpit_ws_t:s0 tcontext=system_u:object_r:sysctl_net_t:s0 tclass=file permissive=1
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+
+```
+  317  cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+  318  # Should return "1" (disabled)
+  319  # Add these lines to /etc/sysctl.conf
+  320  echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+  321  echo "net.ipv6.conf.default.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+  322  # Apply immediately (no reboot needed)
+  323  sudo sysctl -p
+  324  cat /etc/sysctl.comf
+  325  cat /etc/sysctl.conf
+  326  sudo cat /var/log/audit/audit.log | audit2why
+  327  # Add the policy to never audit these actions again
+  328  sudo semanage dontaudit -a -s cockpit_ws_t -t sysctl_net_t -c file -p open,getattr
+  329  cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+  330  # Should return "1" (disabled)
+  331  sudo systemctl restart cockpit.socket
+  332  sudo systemctl status cockpit.socket
+  333  sudo grep init_t /var/log/audit/audit.log | audit2allow -M systemd_msr
+  334  sudo semodule -i systemd_msr.pp
+  335  sudo setsebool -P cockpit_can_network 1
+  336  sudo service auditd rotate
+  337  sudo cat /var/log/audit/audit.log | audit2why
+  338  sudo systemctl status cockpit.socket
+  339  sudo systemctl restart cockpit.socket
+  340  sudo systemctl status cockpit.socket
+  341  sudo cat /var/log/audit/audit.log | audit2why
+  342  history
+
+
+sudo nano /etc/selinux/config
+
+SELINUX=enforcing   # Options: enforcing | permissive | disabled
+SELINUXTYPE=targeted
+
+sudo setenforce 1  # Immediately switch to Enforcing mode  
 
 ### vm-wikijs-netbox
 
@@ -1438,17 +1526,22 @@ This services are in a different machine, so we need to set the IP address of th
 
 3. Remember to add all the firewall and SELinux rules needed.
 
-  !TODO!
+#### Firewall rules
 
-### Cockpit web console
+Set the firewall rules as the following:
 
-We can access to all the VMs with the web console.
+##### public zone
 
-1. We need to access to the web console of the VM `vm-mgmt` with the IP address of the VM and port 9090.
-2. Then we can access to the other VMs with the IP address of the VM and port 9090 as `admin` user.
+This need to let ports for the web applications wikijs and netbox.
 
-    See the image below:
-    ![alt text](../media/Installation-Guide/cockpit-add-host.png)
+enp0s3:
+
+- ports: 8080/tcp, 8000/tcp
+- all other configuration must be disable
+
+##### dmz zone
+
+
 
 ## TIPS
 
