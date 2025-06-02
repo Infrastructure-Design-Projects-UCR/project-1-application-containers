@@ -183,7 +183,7 @@ WIll be deployed in the `vm-monitor` VM as container.
           --network monitor-set \
           --ip 10.89.0.10 \
           -p 8181:8181 \
-          -v monitor-set-influxdb-data:/var/lib/influxdb3 \
+          -v monitor-set-influxdb-data:/var/lib/influxdb3:Z \
           --restart=unless-stopped \
           influxdb:3-core influxdb3 serve \
           --node-id node0 \
@@ -405,7 +405,7 @@ Will be deployed in the `vm-monitor` VM as container with podman. We have to set
       --network monitor-set \
       --ip 10.89.0.11 \
       -p 3000:3000 \
-      -v monitor-set-grafana-data:/var/lib/grafana \
+      -v monitor-set-grafana-data:/var/lib/grafana:Z \
       --restart=unless-stopped \
       grafana/grafana-oss:latest
     ```
