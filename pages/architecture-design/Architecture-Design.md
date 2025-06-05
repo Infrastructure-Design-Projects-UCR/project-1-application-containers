@@ -115,12 +115,11 @@ This document is intended for they who are interested in learning about Podman, 
 
 | VM Name | Purpose | OS | Resources |
 | :---- | :---- | :---- | :---- |
-| `vm-mgmt` | Host Cockpit (web UI), Podman, and security tools (Trivy, linPEAS). | Rocky Linux 9 | 2 vCPU, 1GB RAM, 8GB Storage |
-| `vm-reproxy` | Reverse Proxy (NGINX) for WikiJS/Netbox (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
+| `vm-mgmt` | Just to manage the other VMs. Is the one we need to access with ssh to admin the others | Rocky Linux 9 | 1 vCPU, 1GB RAM, 8GB Storage |
+| `vm-reproxy` | Reverse Proxy (NGINX) for WikiJS/Netbox/Grafana/FreeIpaUI (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
 | `vm-wikijs-netbox` | Host WikiJS and NetBox containers (Podman). Plus services required Redis for Netbox | Rocky Linux 9 | 4 vCPU, 2GB RAM , 8GB Storage |
-| `vm-postgres-wikijs` | Postgresql for WikiJS and Netbox machines. | Rocky Linux 9 | 1 vCPU, 1GB RAM, 14GB Storage |
-| `vm-postgres-netbox` | Postgresql for Netbox machine. | Rocky Linux 9 | 1 vCPU, 1GB RAM, 14GB Storage |
-| `vm-monitor` | Host Telegraf, InfluxDB, and Grafana containers (Podman). | Rocky Linux 9 | 2 vCPU, 2GB RAM, 10GB Storage and 10 Storage for InfluxDB data. |
+| `vm-freeipa` | Have the domain controller FreeIPA with the UI and all the components including DNS | Rocky Linux 9 | 1 vCPU, 2GB RAM, 14GB Storage |
+| `vm-monitor` | Host Telegraf, InfluxDB (Podman), and Grafana (Podman). | Rocky Linux 9 | 2 vCPU, 2GB RAM, 10GB Storage OS and 10GB Storage for InfluxDB data. |
 
 ---
 
