@@ -685,6 +685,246 @@ In this case we have all the machines listed. See ta image below:
 
 ![alt text](../../media/installation-guide/phase3/freeipa-all-hosts.png)
 
-## Adding new users to FreeIPA
+---
+
+## Adding new hosts groups to FreeIPA
+
+Now that we have the FreeIPA server installed and configured, we can add new host groups to FreeIPA. This will allow us to manage the hosts in groups and apply policies to them.
+
+According with the implementation architecture design, we are going to create the following host groups:
+
+- **management-hosts**: includes the management machines, like `vm-mgmt` and `vm-freeipa`.
+- **app-services-hosts**: includes the application services machines, like `vm-wikijs-netbox` and `vm-reproxy`.
+- **monitoring-hosts**: includes the monitoring machines, like `vm-monitor`.
+
+### Adding the `management-hosts` group
+
+1. Go to the **Identity >> Host Groups** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new host group.
+3. Fill in the form with the following information:
+
+    - **Group name**: `management-hosts`
+    - **Description**: `Management hosts group`
+
+4. Click on the **Add and Edit** button to create the group.
+5. Add the `vm-freeipa` and `vm-mgmt` hosts to the `management-hosts` group.
+
+    - Click on the **Hosts** tab.
+    - Click on the **Add** button.
+    - Select the `vm-freeipa.homelabdomain.lan` and `vm-mgmt.homelabdomain.lan` hosts from the list.
+    - Click on **Add** button to add the hosts to the group.
+
+6. Click on **Save** button to create the group.
+
+### Adding the `app-services-hosts` group
+
+1. Go to the **Identity >> Host Groups** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new host group.
+3. Fill in the form with the following information:
+
+    - **Group name**: `app-services-hosts`
+    - **Description**: `Application services hosts group`
+
+4. Click on the **Add and Edit** button to create the group.
+5. Add the `vm-wikijs-netbox` and `vm-reproxy` hosts to the `app-services-hosts` group.
+
+    - Click on the **Hosts** tab.
+    - Click on the **Add** button.
+    - Select the `vm-wikijs-netbox.homelabdomain.lan` and `vm-reproxy.homelabdomain.lan` hosts from the list.
+    - Click on **Add** button to add the hosts to the group.
+
+6. Click on **Save** button to create the group.
+
+### Adding the `monitoring-hosts` group
+
+1. Go to the **Identity >> Host Groups** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new host group.
+3. Fill in the form with the following information:
+
+    - **Group name**: `monitoring-hosts`
+    - **Description**: `Monitoring hosts group`
+
+4. Click on the **Add and Edit** button to create the group.
+5. Add the `vm-monitor` host to the `monitoring-hosts` group.
+
+    - Click on the **Hosts** tab.
+    - Click on the **Add** button.
+    - Select the `vm-monitor.homelabdomain.lan` host from the list.
+    - Click on **Add** button to add the host to the group.
+
+6. Click on **Save** button to create the group.
 
 
+## Adding new users and groups to FreeIPA
+
+We are going to add three initial users to FreeIPA for testing purposes. The following users will be added:
+
+- `jorgediazsagot`: This is a system administrator user with sudo privileges.
+- `appsupportuser`: This is a regular user for testing purposes, that only is able to check the WikiJS, NetBox and Reverse Proxy web interfaces, and servers to see if the services are running properly.
+
+The idea of adding these users is to test the FreeIPA authentication and authorization in the client machines.
+
+To add this users we need groups, so we will create a group called `sysadmins` (no freeipa client access) for the `jorgediazsagot` user, and a group called `monitors` for the `appsupportuser`. The last one is only able to login to **Grafana** web interface.
+
+### Adding the `jorge.diazsagot` user
+
+#### Creating a group a `sysadmins`
+
+1. Assuming you are logged in to the FreeIPA web interface as the `admin` user, go first to create a group called `sysadmins` .
+2. Go to the **Identity >> Groups** section in the FreeIPA web interface.
+3. Click on the **Add** button to create a new group.
+4. Fill in the form with the following information:
+
+    - **Group name**: `sysadmins`
+    - **Description**: `System administrators group with sudo privileges`
+    - **Group type**: `POSIX`. See more of group types in the [TODO] section.
+    - **Group ID**: `10000` (or any other unused GID).
+
+5. Click on the **Add and Edit** button to create the group.
+6. Add the `sysadmin` user to the `sysadmins` group.
+
+#### Creating the `sysadmin` user
+
+1. Go to the **Identity >> Users** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new user.
+3. Fill in the form with the following information:
+
+    - **User login**: `sysadmin`
+    - **First name**: `System`
+    - **Last name**: `Administrator`
+    - **GID**: `10000` (is the GID of the `sysadmins` group we created before).
+
+    **NOTE**: Set password as well.
+
+4. Click on the **Add and Edit** button to create the user.
+
+    - Change **Login shell** to `/bin/bash`.
+    - **User Authentication types**: Select `Password`.
+
+5. We need to go to **Identity >> Users >> sysadmin** and set the **User Groups** to `sysadmins` group we created before.
+
+    - Click on the **Groups** tab.
+    - Click on the **Add** button.
+    - Select the `sysadmins` group from the list.
+    - Click on **Add** button to add the group to the user.
+    - Delete the `ipausers` group from the user, if it is there because this user only have access to all the unless **freeipa client**.
+
+6. Click on **Save** button to create the user.
+
+#### Creating a group `application-support`
+
+1. Go to the **Identity >> Groups** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new group.
+3. Fill in the form with the following information:
+
+    - **Group name**: `application-support`
+    - **Description**: `Application support group with access to WikiJS, NetBox and Reverse Proxy`
+    - **Group type**: `POSIX`. See more of group types in the [TODO] section.
+    - **Group ID**: `10005` (or any other unused GID).
+
+4. Click on the **Add and Edit** button to create the group.
+
+#### Creating the `application-support-user` user
+
+1. Go to the **Identity >> Users** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new user.
+3. Fill in the form with the following information:
+
+    - **User login**: `application-support-user`
+    - **First name**: `Application`
+    - **Last name**: `Support`
+    - **Description**: `Test user for application support purposes`
+
+4. Click on the **Add and Edit** button to create the user.
+
+    - **Job Title**: `SRE Professional, Application Support`
+    - **Login shell**: `/bin/bash` (to avoid login to the system).
+    - **User Authentication types**: Select `Password`.
+
+5. We need to go to **Identity >> Users >> application-support-user** and set the **User Groups** to `application-support` group we created before.
+
+    - Click on the **Groups** tab.
+    - Click on the **Add** button.
+    - Select the `application-support` group from the list.
+    - Click on **Add** button to add the group to the user.
+    - Delete the `ipausers` group from the user, if it is there.
+
+6. Click on **Save** button to create the user.
+
+### Set up sudo privileges for the `sysadmins` group
+
+To allow members of the `sysadmins` group to execute commands with sudo privileges on all hosts, follow these steps using the FreeIPA command-line tools.
+
+Execute these commands on the FreeIPA server (`vm-freeipa`) as the `admin` user which is the FreeIPA administrator:
+
+1. Create a Sudo Rule for the sysadmins Group
+
+    This rule will allow all commands to be run as any user or group on any host:
+
+    ```bash
+    ipa sudorule-add sysadmin_sudo --hostcat=all --runasusercat=all --runasgroupcat=all --cmdcat=all
+    ```
+
+2. Assign the sysadmins Group to the Sudo Rule. 
+
+    Add the `sysadmins` group to the newly created sudo rule:
+
+    ```bash
+    ipa sudorule-add-user sysadmin_sudo --group sysadmins
+    ```
+
+3. Verify the Sudo Rule
+
+    Check that the sudo rule is correctly configured:
+
+    ```bash
+    ipa sudorule-show sysadmin_sudo
+    ```
+
+    You should see output similar to:
+
+    ```text
+    Rule name: sysadmin_sudo
+    Enabled: True
+    Host category: all
+    Command category: all
+    RunAs User category: all
+    RunAs Group category: all
+    User Groups: sysadmins
+    ```
+
+4. **Verify the sysadmins Group**
+
+    Confirm that the `sysadmins` group exists and is correctly set up:
+
+    ```bash
+    ipa group-find sysadmins
+    ```
+
+    You should see output similar to:
+
+    ```text
+    Group name: sysadmins
+    Description: System administrators group with sudo privileges in vms.
+    GID: 10000
+    Member users: sysadmin, jorgediazsagot
+    Member of Sudo rule: sysadmin_sudo
+    ```
+
+5. After completing these steps, all users in the `sysadmins` group will have sudo privileges on all FreeIPA-enrolled hosts.
+
+6. To validate `jorgediazsagot` user can use sudo, log in to any host as `jorgediazsagot` and run a command with sudo:
+
+    ```bash
+    sudo whoami
+    ```
+
+    You should see `root` as the output, indicating that the command was executed with root privileges.
+
+### Conclusion
+
+Now we have the `sysadmins` group created with the `sysadmin` user, and the `application-support` group with the `application-support-user` user.
+
+NOTE: Default configuration of Host-Based Access Control (HBAC) in FreeIPA allows all users to access all hosts, so we don't need to configure anything else for the `sysadmins` group.
+
+In next sections we will modify this, to only allow access to specific hosts.
