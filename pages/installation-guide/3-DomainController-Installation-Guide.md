@@ -413,7 +413,6 @@ In your host computer, where you run **VirtualBox**. Here you have two options t
 1. **Using the Host-Only IP**: You can access the FreeIPA web interface using the Host-Only IP of the `vm-freeipa` VM, which is `192.168.202.11`.
 2. Mapping the `vm-freeipa.homelabdomain.lan` domain to the Host-Only IP in your host computer's `/etc/hosts` file. This way, you can access the FreeIPA web interface using the FQDN `vm-freeipa.homelabdomain.lan`.
 
-
 With any option to should see login page, there you can log in with the `admin` user and the password you set during the FreeIPA installation.
 
 Then this is the main page of the FreeIPA web interface:
@@ -766,7 +765,7 @@ The idea of adding these users is to test the FreeIPA authentication and authori
 
 To add this users we need groups, so we will create a group called `sysadmins` (no freeipa client access) for the `jorgediazsagot` user, and a group called `monitors` for the `appsupportuser`. The last one is only able to login to **Grafana** web interface.
 
-### Adding the `jorge.diazsagot` user
+### Adding the `jorgediazsagot` user
 
 #### Creating a group a `sysadmins`
 
@@ -781,9 +780,9 @@ To add this users we need groups, so we will create a group called `sysadmins` (
     - **Group ID**: `10000` (or any other unused GID).
 
 5. Click on the **Add and Edit** button to create the group.
-6. Add the `sysadmin` user to the `sysadmins` group.
+6. Add the `jorgediazsagot` user to the `sysadmins` group.
 
-#### Creating the `sysadmin` user
+#### Creating the `jorgediazsagot` user
 
 1. Go to the **Identity >> Users** section in the FreeIPA web interface.
 2. Click on the **Add** button to create a new user.
@@ -928,3 +927,93 @@ Now we have the `sysadmins` group created with the `sysadmin` user, and the `app
 NOTE: Default configuration of Host-Based Access Control (HBAC) in FreeIPA allows all users to access all hosts, so we don't need to configure anything else for the `sysadmins` group.
 
 In next sections we will modify this, to only allow access to specific hosts.
+
+## LDAP integration with services
+
+### Wikijs
+
+Wikijs have a nice integration with LDAP, so we can use the FreeIPA users to log in to Wikijs by UI without configuring anything else or restarting the service.
+
+#### Prerequisites
+
+##### Create an LDAP Authentication Provider
+
+First **Wikisjs** have as a prerequsite create a user in FreeIPA that will be used to authenticate the **LDAP** server. This user needs to have read access to the LDAP components that Wikijs will use to authenticate users.
+
+1. Create the user going to the **Identity >> Users** section in the FreeIPA web interface.
+
+2. Add a new user with:
+
+    - **User login**: `ldapauth-wikijs`
+    - Assign a password for the user.
+
+3. Click on the **Add and Edit** button to create the user.
+
+    - Deactivate shell for the user, so it cannot log in to the system.
+    - Set user to `admins` group, so it can read the LDAP components
+
+4. Click on **Save** button to create the user.
+
+##### Create a less privileged group for Wikijs
+
+This group will only have access to Homepage. I will be assigning to new users that log in with FreeIPA.
+
+In Wikijs UI.
+
+1. As admin user, go to **Administration >> Groups**.
+2. Click on the **New Group** button to create a new group.
+3. Set the name `base`.
+4. Put the following config:
+
+    - Settings:
+
+        ![alt text](../../media/installation-guide/phase3/wikijs-base-user-settings.png)
+
+    - Permissions:
+        - `read:pages` and `read:assets` checked.
+
+    - Page Rules:
+
+        ![alt text](../../media/installation-guide/phase3/wikijs-base-user-pagerules.png)
+
+5. Click on the **Update Group** button to create the group.
+
+**NOTE**: We do the same with documentator groups. But we give them the access to read/write pages and assets. And admin all related with pages.
+
+#### Configure Wikijs to use FreeIPA LDAP
+
+We would use the following configuration to connect Wikijs to FreeIPA LDAP server.
+
+1. Go to **Administration >> Authentication** in the Wikijs UI.
+2. Click on the **Add Strategy** button to create a new authentication strategy.
+3. Select **LDAP** as the authentication strategy.
+4. Fill in the form with the following information:
+
+  ![alt text](../../media/installation-guide/phase3/wikijs-ldap-config.png)
+
+  **NOTE**: See that we create a group in FreeIPA called `wikijs-web-admins` and we assign the users that will be able to log in to Wikijs. This group is used to filter the users that can log in to Wikijs.
+  **NOTE**: We also use the less privilaged group `base` to assign to new users that log in with FreeIPA. This way, they will only have access to the Homepage and cannot create or edit pages.
+
+5. Click on the **Apply** button to create the authentication strategy.
+
+#### Testing the LDAP authentication
+
+Now you can test the LDAP authentication by logging in to Wikijs with a FreeIPA user that have assigned the `wikijs-web-admins` group.
+
+1. Go to the Wikijs login page.
+2. Select the **LDAP** authentication strategy.
+3. Enter the FreeIPA user credentials (username and password).
+4. If the authentication is successful, you will be redirected to the Wikijs homepage.
+
+    ![alt text](../../media/installation-guide/phase3/wikijs-user-valid-test.png)
+
+5. If you are not member of the `wikijs-web-admins` group, you are not authorized to log in, and you will see an error message.
+
+    ![alt text](../../media/installation-guide/phase3/wikijs-user-invalid-test.png)
+
+### Netbox
+
+
+
+
+
