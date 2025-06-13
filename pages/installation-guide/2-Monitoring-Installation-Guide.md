@@ -381,7 +381,7 @@ Will be deployed in the `vm-monitor` VM as container with podman. We have to set
 1. Pull the `Grafana` image.
 
     ```bash
-    podman pull grafana/grafana-oss:latest
+    podman pull grafana/grafana-oss:12.0.1
     ```
 
     **NOTE:** We use oss version because of reduce the size of the image. We don't need the enterprise version for this project.
@@ -407,7 +407,7 @@ Will be deployed in the `vm-monitor` VM as container with podman. We have to set
       -p 3000:3000 \
       -v monitor-set-grafana-data:/var/lib/grafana:Z \
       --restart=unless-stopped \
-      grafana/grafana-oss:latest
+      grafana/grafana-oss:12.0.1
     ```
 
 5. Open the port in firewall for `Grafana` service. We need to open the port `3000` for `Grafana` service.
@@ -864,3 +864,10 @@ podman-compose -f wikijs-set-compose.yml -p wikijs-set up -d
 ```
 
 This is because podman-compose make a single pod for all the compose it runs. So to insolate the containers for each set of services, we need to define a different pod name for each compose file.
+
+And for down we use the following commands:
+
+```bash
+podman-compose -f netbox-set-compose.yml -p netbox-set down
+podman-compose -f wikijs-set-compose.yml -p wikijs-set down
+```

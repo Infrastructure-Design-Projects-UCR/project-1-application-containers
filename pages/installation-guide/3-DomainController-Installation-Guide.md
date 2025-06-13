@@ -864,9 +864,9 @@ Execute these commands on the FreeIPA server (`vm-freeipa`) as the `admin` user 
     ipa sudorule-add sysadmin_sudo --hostcat=all --runasusercat=all --runasgroupcat=all --cmdcat=all
     ```
 
-2. Assign the sysadmins Group to the Sudo Rule. 
+2. Assign the Groups to the Sudo Rule.
 
-    Add the `sysadmins` group to the newly created sudo rule:
+    - Add the `sysadmins` group to the newly created sudo rule:
 
     ```bash
     ipa sudorule-add-user sysadmin_sudo --group sysadmins
@@ -891,6 +891,8 @@ Execute these commands on the FreeIPA server (`vm-freeipa`) as the `admin` user 
     RunAs Group category: all
     User Groups: sysadmins
     ```
+
+    **Note**: All hosts are included by default in the sudo rule, so you don't need to specify them explicitly.
 
 4. **Verify the sysadmins Group**
 
@@ -927,6 +929,142 @@ Now we have the `sysadmins` group created with the `sysadmin` user, and the `app
 NOTE: Default configuration of Host-Based Access Control (HBAC) in FreeIPA allows all users to access all hosts, so we don't need to configure anything else for the `sysadmins` group.
 
 In next sections we will modify this, to only allow access to specific hosts.
+
+## Host-Based Access Control (HBAC) in FreeIPA
+
+Here we are going to set minimal priviliges rules in the hosts to allow the users to access the hosts they need to access.
+
+### Creating a HBAC Rule for the `sysadmins` group
+
+This is based on our security and implementation architecture design.
+
+1. Go to `vm-freeipa` machine as `admin` FreeIPA user, where you have the FreeIPA server installed and executing the following command to disable the default HBAC rule that allows all users to access all hosts:
+
+    ```bash
+    ipa hbacrule-disable allow_all
+    ```
+
+    This will disable the default rule that allows all users to access all hosts.
+
+2. to create a new HBAC rule for the `sysadmins` group:
+
+    ```bash
+    ipa hbacrule-add  hbac_operation_sysadmin --desc "HBAC rule for sysadmins group"
+    ```
+
+3. Add the `sysadmins` group to the HBAC rule:
+
+    ```bash
+    ipa hbacrule-add-member hbac_operation_sysadmin --groups sysadmins
+    ```
+
+4. Add the hosts where the `sysadmins` group can access:
+
+    - For this we will use the following host groups we created before:
+
+        | Host Group           | Included Machines                        |
+        |----------------------|------------------------------------------|
+        | management-hosts     | vm-mgmt                                  |
+        | app-services-hosts   | vm-wikijs-netbox, vm-reproxy             |
+        | monitoring-hosts     | vm-monitor                               |
+        | dc-hosts             | vm-freeipa                               |
+
+    ```bash
+    ipa hbacrule-add-host hbac_operation_sysadmin --hostgroup <hostgroup_name>
+    ```
+
+5. Add services to the rule to ssh, sudo and su-l commands:
+
+    - The services we are going to add are:
+
+        | Service Name         | Description                              |
+        |----------------------|------------------------------------------|
+        | sshd                 | SSH service for remote access            |
+        | sudo                 | Allow sudo command execution              |
+        | su-l                 | Allow su command execution with login shell |
+
+    ```bash
+    ipa hbacrule-add-service hbac_operation_sysadmin --hbacsvcs <service_name>
+    ```
+
+6. Now this group have the access to the hosts and services we defined in the HBAC rule.
+
+**NOTE**: Remember that you need to add sudo rules as we did before to allow the `sysadmins` group to execute commands with sudo privileges on the hosts. More details in section [Set up sudo privileges for the `sysadmins` group](#set-up-sudo-privileges-for-the-sysadmins-group).
+
+You need to haves this both rules to have the access to the hosts and services.
+
+So now we have something like this:
+
+```text
+HBAC rule (hbac_operation_sysadmin)
+
+-> Controls where your sysadmins group can log in (and which IPA-managed services, like SSH, su, sudo, certificate enrollment, etc.).
+
+Sudo rule (sysadmin_sudo)
+
+Controls what your sysadmins group is allowed to do once they’ve logged in (in this case, everything: ALL=(ALL) ALL).
+
+```
+
+### Creating a HBAC Rule for the `application-support` group
+
+We are going to create a HBAC rule for the `application-support` group, so they can access the hosts where the application services are running, like `vm-wikijs-netbox` and `vm-reproxy`. We need to give access to `vm-mgmt` as well, that is the unique point of ssh to the other machines.
+
+This time we are going to use FreeIPA UI to create the HBAC rule.
+
+1. Go to the **Identity >> HBAC Rules** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new HBAC rule.
+3. Fill in the form with the following information:
+
+    - **Rule name**: `hbac_operation_application_support`
+    - **Description**: `HBAC rule for application support group`
+    - **Enabled**: Checked
+
+4. Click on the **Add and Edit** button to create the rule. An set the following:
+
+    ![alt text](../../media/installation-guide/phase3/freeipa-hbac-support-users.png)
+
+5. Now we need to add a sudo rule for the `application-support` group, we can optimize the creation of a sudo rule by using the `sysadmin_sudo` rule we created before. That rule is for all host, but because of HBAC rule, the `application-support` group will only be able to access the hosts we defined in the HBAC rule.
+
+    - Execute the following command to add the `application-support` group to the `sysadmin_sudo` rule:
+
+    ```bash
+    ipa sudorule-add-user sysadmin_sudo --group application-support
+    ```
+
+6. Now with this permissions the user `application-support-user` can log in to the `vm-mgmt`, `vm-wikijs-netbox` and `vm-reproxy` machines, and execute commands with sudo privileges.
+
+7. If try to ssh into the `vm-freeipa` machine, you will get an error message saying that the user is not allowed to log in to that host:
+
+    ```bash
+    Received disconnect from UNKNOWN port 65535:2: Too many authentication failures
+    Disconnected from UNKNOWN port 65535
+    ```
+
+    This is because the `application-support` group is not allowed to log in to the `vm-freeipa` machine, as we defined in the HBAC rule.
+
+### Creating a HBAC Rule for the `admin` user
+
+This user only have access to the `vm-freeipa` machine, so we can manage the FreeIPA server and the users and groups in it.
+1. Go to the **Identity >> HBAC Rules** section in the FreeIPA web interface.
+2. Click on the **Add** button to create a new HBAC rule.
+3. Fill in the form with the following information:
+
+    - **Rule name**: `hbac_operation_admin`
+
+4. Click on the **Add and Edit** button to create the rule.
+5. Set the following information in the form:
+    - **Description**: `HBAC rule for admin user`
+    - **Users**: `admin`
+    - **Hosts Groups**: `dc-hosts` (this is the group we created before that includes the `vm-freeipa` host).
+    - **HBAC Services**: `sshd`, `sudo`, `su-l` (this is the same services we added in the previous HBAC rules).
+
+6. Now we can use `admin` so execute commands in the `vm-freeipa` machine, and manage the FreeIPA server only.
+
+### Conclusion
+
+The actual state only allows the `sysadmins` group to log in to all hosts, and the `application-support` group to log in to the application services hosts (`vm-wikijs-netbox` and `vm-reproxy`) and the management host (`vm-mgmt`).
+This is a good starting point to manage the access to the hosts and services in the FreeIPA server.
 
 ## LDAP integration with services
 
@@ -1013,7 +1151,292 @@ Now you can test the LDAP authentication by logging in to Wikijs with a FreeIPA 
 
 ### Netbox
 
+For this we use a reference from the official documentation: [Netbox LDAP DOCS for netbox-docker image](https://github.com/netbox-community/netbox-docker/wiki/LDAP).
 
+1. It recommends using the following compose format for OpenLDAP configuration:
 
+```yaml
+version: "3.4"
+services:
+  netbox:
+    environment:
+      REMOTE_AUTH_ENABLED: "True"
+      REMOTE_AUTH_BACKEND: "netbox.authentication.LDAPBackend"
+      AUTH_LDAP_SERVER_URI: "ldaps://domain.com"
+      AUTH_LDAP_BIND_DN: "cn=netbox,ou=services,dc=domain,dc=com"
+      AUTH_LDAP_BIND_PASSWORD: "TopSecretPassword"
+      AUTH_LDAP_USER_SEARCH_BASEDN: "ou=people,dc=domain,dc=com"
+      AUTH_LDAP_GROUP_SEARCH_BASEDN: "ou=groups,dc=domain,dc=com"
+      AUTH_LDAP_REQUIRE_GROUP_DN: "cn=netbox" # or "cn=netbox,ou=groups,dc=domain,dc=com"
+      AUTH_LDAP_IS_ADMIN_DN: "cn=netbox-admins,ou=groups,dc=domain,dc=com"
+      AUTH_LDAP_IS_SUPERUSER_DN: "cn=netbox-superusers,ou=groups,dc=domain,dc=com"
+      AUTH_LDAP_USER_SEARCH_ATTR: "uid"
+      AUTH_LDAP_GROUP_SEARCH_CLASS: "groupOfUniqueNames"
+      AUTH_LDAP_GROUP_TYPE: "GroupOfUniqueNamesType"
+      AUTH_LDAP_ATTR_LASTNAME: "sn"
+      AUTH_LDAP_ATTR_FIRSTNAME: "givenName"
+      LDAP_IGNORE_CERT_ERRORS: "false"
+```
 
+2. We need to adapt this for our LDAP server, which is FreeIPA. The following configuration is based on the FreeIPA LDAP structure and the groups we created before.
 
+    - This is what each thing means in the configuration:
+
+        ```yaml
+        REMOTE_AUTH_ENABLED: Enables or disables remote authentication (True to enable).
+        REMOTE_AUTH_BACKEND: Specifies the authentication backend to use (here, LDAP).
+        AUTH_LDAP_SERVER_URI: URI of the LDAP server to connect to for authentication.
+        AUTH_LDAP_BIND_DN: Distinguished Name (DN) used to bind (authenticate) to the LDAP server.
+        AUTH_LDAP_BIND_PASSWORD: Password for the bind DN account.
+        AUTH_LDAP_USER_SEARCH_BASEDN: Base DN for searching user entries in LDAP.
+        AUTH_LDAP_GROUP_SEARCH_BASEDN: Base DN for searching group entries in LDAP.
+        AUTH_LDAP_REQUIRE_GROUP_DN: DN of the group required for user authentication (must be a member).
+        AUTH_LDAP_IS_ADMIN_DN: DN of the group whose members are granted admin privileges.
+        AUTH_LDAP_IS_SUPERUSER_DN: DN of the group whose members are granted superuser privileges.
+        AUTH_LDAP_USER_SEARCH_ATTR: LDAP attribute used to search for users (e.g., 'uid').
+        AUTH_LDAP_GROUP_SEARCH_CLASS: LDAP object class used for group searches (e.g., 'groupOfUniqueNames').
+        AUTH_LDAP_GROUP_TYPE: Type of LDAP group (e.g., 'GroupOfUniqueNamesType').
+        AUTH_LDAP_ATTR_LASTNAME: LDAP attribute for user's last name (e.g., 'sn').
+        AUTH_LDAP_ATTR_FIRSTNAME: LDAP attribute for user's first name (e.g., 'givenName').
+        LDAP_IGNORE_CERT_ERRORS: Whether to ignore certificate errors when connecting to LDAP (false to enforce validation).
+        ```
+
+    - This is our configuration for Netbox to use FreeIPA LDAP:
+
+        ```yaml
+        REMOTE_AUTH_ENABLED: "True"
+        REMOTE_AUTH_BACKEND: "netbox.authentication.LDAPBackend"
+        AUTH_LDAP_SERVER_URI: "ldap://vm-freeipa.homelabdomain.lan"
+        AUTH_LDAP_BIND_DN: "uid=ldapauth-netbox,cn=users,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_BIND_PASSWORD: "your_password_here"
+        AUTH_LDAP_USER_SEARCH_BASEDN: "cn=users,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_GROUP_SEARCH_BASEDN: "cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_REQUIRE_GROUP_DN: "cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_IS_ADMIN_DN: "cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_IS_SUPERUSER_DN: "cn=netbox-web-superusers,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+        AUTH_LDAP_USER_SEARCH_ATTR: "uid"
+        AUTH_LDAP_GROUP_SEARCH_CLASS: "groupOfNames"
+        AUTH_LDAP_GROUP_TYPE: "GroupOfNamesType"
+        AUTH_LDAP_ATTR_LASTNAME: "sn"
+        AUTH_LDAP_ATTR_FIRSTNAME: "givenName"
+        LDAP_IGNORE_CERT_ERRORS: "false"
+        ```
+
+1. So we need to run the Netbox with podman-compose with above configuration in environment variables.
+
+```yml
+version: '3.8'
+services:
+  postgres:
+    container_name: netbox-set-postgres-service
+    image: postgres:17-alpine
+    networks:
+      netbox-service-set:
+        ipv4_address: 10.89.1.31
+    ports:
+      - "5433:5432"
+    volumes:
+      - netbox-set-postgres-data:/var/lib/postgresql/data:Z
+    secrets:
+      - source: netbox_set_postgres_db
+        target: POSTGRES_DB
+        type: env
+      - source: netbox_set_postgres_password
+        target: POSTGRES_PASSWORD
+        type: env
+      - source: netbox_set_postgres_user
+        target: POSTGRES_USER
+        type: env
+    restart: unless-stopped
+
+  redis-tasks:
+    container_name: netbox-set-redis-tasks-service
+    image: valkey:8.0-alpine
+    networks:
+      netbox-service-set:
+        ipv4_address: 10.89.1.32
+    volumes:
+      - netbox-set-redis-task-queue-data:/data:Z
+    command: ["valkey-server", "--appendonly", "yes"]
+    restart: unless-stopped
+
+  redis-cache:
+    container_name: netbox-set-redis-cache-service
+    image: valkey:8.0-alpine
+    networks:
+      netbox-service-set:
+        ipv4_address: 10.89.1.33
+    command: ["valkey-server"]
+    restart: unless-stopped
+
+  netbox:
+    container_name: netbox-set-netbox-service
+    image: netbox:latest-3.2.0
+    networks:
+      netbox-service-set:
+        ipv4_address: 10.89.1.30
+    ports:
+      - "8000:8080"
+    volumes:
+      - netbox-set-media-data:/opt/netbox/netbox/media:Z
+      - netbox-set-reports-data:/opt/netbox/netbox/reports:Z
+      - netbox-set-scripts-data:/opt/netbox/netbox/scripts:Z
+    environment:
+      - ALLOWED_HOSTS=*
+      - DB_WAIT_DEBUG=1
+      - DB_HOST=10.89.1.31
+      - DB_PORT=5432
+      - REDIS_HOST=10.89.1.32
+      - REDIS_PORT=6379
+      - REDIS_DATABASE=0
+      - REDIS_SSL=False
+      - REDIS_CACHE_HOST=10.89.1.33
+      - REDIS_CACHE_PORT=6379
+      - REDIS_CACHE_DATABASE=1
+      - REDIS_CACHE_SSL=False
+      - SKIP_SUPERUSER=false
+      - REMOTE_AUTH_ENABLED=True
+      - REMOTE_AUTH_BACKEND=netbox.authentication.LDAPBackend
+      - AUTH_LDAP_SERVER_URI=ldap://vm-freeipa.homelabdomain.lan:389
+      - AUTH_LDAP_BIND_DN=uid=ldapauth-netbox,cn=users,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_BIND_PASSWORD=your_password_here
+      - AUTH_LDAP_USER_SEARCH_BASEDN=cn=users,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_GROUP_SEARCH_BASEDN=cn=groups,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_REQUIRE_GROUP_DN=cn=groups,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_IS_ADMIN_DN=cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_IS_SUPERUSER_DN=cn=netbox-web-superusers,cn=groups,cn=accounts,dc=homelabdomain,dc=lan
+      - AUTH_LDAP_USER_SEARCH_ATTR=uid
+      - AUTH_LDAP_GROUP_SEARCH_CLASS=groupOfNames
+      - AUTH_LDAP_GROUP_TYPE=GroupOfNamesType
+      - AUTH_LDAP_ATTR_LASTNAME=sn
+      - AUTH_LDAP_ATTR_FIRSTNAME=givenName
+      - LDAP_IGNORE_CERT_ERRORS=false
+    secrets:
+      - source: netbox_set_postgres_user
+        target: DB_USER
+        type: env
+      - source: netbox_set_postgres_db
+        target: DB_NAME
+        type: env
+      - source: netbox_set_postgres_password
+        target: DB_PASSWORD
+        type: env
+      - source: netbox_set_superuser_name
+        target: SUPERUSER_NAME
+        type: env
+      - source: netbox_set_superuser_email
+        target: SUPERUSER_EMAIL
+        type: env
+      - source: netbox_set_superuser_pass
+        target: SUPERUSER_PASSWORD
+        type: env
+      - source: netbox_set_secret_key
+        target: SECRET_KEY
+        type: env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login/"]
+      start_period: 90s
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  netbox-service-set:
+    external: true
+
+volumes:
+  netbox-set-postgres-data:
+    external: true
+  netbox-set-redis-task-queue-data:
+    external: true
+  netbox-set-media-data:
+    external: true
+  netbox-set-reports-data:
+    external: true
+  netbox-set-scripts-data:
+    external: true
+
+secrets:
+  netbox_set_postgres_db:
+    external: true
+  netbox_set_postgres_password:
+    external: true
+  netbox_set_postgres_user:
+    external: true
+  netbox_set_superuser_name:
+    external: true
+  netbox_set_superuser_email:
+    external: true
+  netbox_set_superuser_pass:
+    external: true
+  netbox_set_secret_key:
+    external: true
+```
+
+**IN PROGRESS**: IS not working yet, need to check the LDAP configuration in Netbox and debug it.
+
+### Grafana
+
+We use the config file solution to add the LDAP authentication in Grafana, so we can use the FreeIPA users to log in to Grafana. As dicussed in the official documentation: [Grafana LDAP DOCS](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/ldap/).
+
+1. We need to add environment to the Granafana container to enable LDAP authentication. This can be done by adding the following environment variable to the Grafana container:
+
+    ```bash
+    "GF_AUTH_LDAP_ENABLED=true"
+    ```
+
+2. Now we need to configure LDAP authentication in Grafana. You can do this by creating a `ldap.toml` or modifying the existing one in the Grafana configuration directory. This is saved in /srv/grafana-ldap folder.
+
+    Here is an example of the `ldap.toml` file:
+
+    ```toml
+    [[servers]]
+    host = "vm-freeipa.homelabdomain.lan"
+    port = 389
+    use_ssl = false
+    start_tls = false
+    bind_dn = "uid=ldapauth-grafana,cn=users,cn=accounts,dc=homelabdomain,dc=lan"
+    bind_password = "your_password_here"
+
+    search_filter = "(uid=%s)"
+    search_base_dns = ["cn=users,cn=accounts,dc=homelabdomain,dc=lan"]
+
+    [[servers.group_mappings]]
+    group_dn = "cn=grafana-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+    org_role = "Admin"
+
+    [[servers.group_mappings]]
+    group_dn = "cn=base-web,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+    org_role = "Viewer"
+    ```
+
+3. Then of saving that file, when you run the container, bind that file to the container by adding the following volume to the Grafana container.
+
+    ```bash
+    podman volume create monitor-set-grafana-ldap --opt type=none --opt device=/srv/grafana-ldap/ldap.toml --opt o=bind
+    ```
+
+4. Create a volume for Grafana data if you haven't done it yet:
+
+    ```bash
+    podman volume create monitor-set-grafana-ldap \
+        --opt type=none --opt device=/srv/grafana-ldap --opt o=bind
+    ```
+
+5. With this changes our podman run for granafa will look like this:
+
+    ```bash
+    podman run -d \
+        --name monitor-set-grafana-service \
+        --network monitor-set \
+        --ip 10.89.0.11 \
+        -p 3000:3000 \
+        -v monitor-set-grafana-data:/var/lib/grafana:Z \
+        -v monitor-set-grafana-ldap:/etc/grafana/:Z \
+        -e "GF_AUTH_LDAP_ENABLED=true" \
+        --restart=unless-stopped \
+        grafana/grafana-oss:12.0.1
+    ```
+
+**In Progress**: My InfluxDB3 got corrupted because a Windows Updated that restarted the machine, so I need to fix that first to be able to test the Grafana LDAP authentication.

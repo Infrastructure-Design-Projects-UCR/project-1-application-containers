@@ -803,7 +803,7 @@ Also the use of `podman-compose` or podman pods can be interesting for future de
         ports:
           - "5432:5432"
         volumes:
-          - wikijs-set-postgres-data:/var/lib/postgresql/data
+          - wikijs-set-postgres-data:/var/lib/postgresql/data:Z
         secrets:
           - source: wikijs_set_postgres_user
             target: POSTGRES_USER
@@ -1277,7 +1277,7 @@ and
           netbox-service-set:
             ipv4_address: 10.89.1.31
         volumes:
-          - netbox-set-postgres-data:/var/lib/postgresql/data
+          - netbox-set-postgres-data:/var/lib/postgresql/data:Z
         secrets:
           - source: netbox_set_postgres_db
             target: POSTGRES_DB
@@ -1297,7 +1297,7 @@ and
           netbox-service-set:
             ipv4_address: 10.89.1.32
         volumes:
-          - netbox-set-redis-task-queue-data:/data
+          - netbox-set-redis-task-queue-data:/data:Z
         command: ["valkey-server", "--appendonly", "yes"]
         restart: unless-stopped
 
@@ -1321,9 +1321,9 @@ and
         ports:
           - "8000:8080"
         volumes:
-          - netbox-set-media-data:/opt/netbox/netbox/media
-          - netbox-set-reports-data:/opt/netbox/netbox/reports
-          - netbox-set-scripts-data:/opt/netbox/netbox/scripts
+          - netbox-set-media-data:/opt/netbox/netbox/media:Z
+          - netbox-set-reports-data:/opt/netbox/netbox/reports:Z
+          - netbox-set-scripts-data:/opt/netbox/netbox/scripts:Z
         environment:
           - ALLOWED_HOSTS=localhost 10.0.3.11
           - DB_WAIT_DEBUG=1

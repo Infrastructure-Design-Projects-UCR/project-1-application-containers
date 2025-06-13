@@ -76,15 +76,15 @@ The `vm-freeipa` machine will be dedicated to FreeIPA, which provides centralize
 
 Incremental deployment plan, to be able to test the integration with **Podman** and the services.
 
-### 2.1. **Project 1: Application container**
+## 2.1. **Project 1: Application container**
 
-#### 2.1.1. Pre-Deployment
+### 2.1.1. Pre-Deployment
 
 Base image configuration already has Cockpit installed and `cockpit-podman` extension. So all the machines will have the same base image.
 
 The rationale of having Cockpit installed is be able to see the machines and the containers running in the machines with web GUI.
 
-#### 2.1.2. First deployment
+### 2.1.2. First deployment
 
 All of these will be executed as admin user, it have wheel privileges, but any command will be run as sudo.
 
@@ -112,30 +112,30 @@ All of these will be executed as admin user, it have wheel privileges, but any c
 
 **Note**: No security checking is made in the first deployment, because we are in a lab to test the integration with **Podman**.
 
-#### 2.1.3. Second deployment
+### 2.1.3. Second deployment
 
 Deploy all with `podman-compose`, `ansible` or other orchestration tool.
     1. Use **Ansible** to deploy all the machines and the containers.
     2. Use **podman-compose** to deploy all the containers.
     3. Use **ansible** to configure the machines and the containers.
 
-#### 2.1.4. Third deployment
+### 2.1.4. Third deployment
 
 Deploy in `vm-reproxy` machine with `nginx` server with container.
     1. Install **nginx** in the `vm-reproxy` machine with `podman`.
     2. Configure the firewalld rules.
     3. Configure the network interfaces.
 
-#### 2.1.5. Fourth deployment
+### 2.1.5. Fourth deployment
 
 Enchance the security of the containers and machines with **Trivy** and **linPEAS**.
     1. Remember firewalld rules for each interface.
     2. Run **Trivy** and **linPEAS** in the `vm-wikijs-netbox` machine.
     3. Modify containers listen address, to only listen to required ips and ports in groups of services.
 
-### 2.2. **Project 2: Monitoring stack**
+## 2.2. **Project 2: Monitoring stack**
 
-#### 2.2.1. Pre-Deployment
+### 2.2.1. Pre-Deployment
 
 1. We are going to use an extra disk for the InfluxDB data. The idea is to have a separate disk for the data, so we can manage the data separately from the OS. Insolation of date is a good practice, moreover we need more space.
 
@@ -145,9 +145,9 @@ Enchance the security of the containers and machines with **Trivy** and **linPEA
 3. Configure the network interfaces.
 4. Configure the firewalld rules.
 
-#### 2.2.1. First deployment
+### 2.2.1. First deployment
 
-##### 2.2.1.1. InfluxDB
+#### 2.2.1.1. InfluxDB
 
 1. Create a persistent volume for the data in the new disk.
 2. Create a new network for all the monitoring containers.
@@ -155,14 +155,14 @@ Enchance the security of the containers and machines with **Trivy** and **linPEA
 4. Configure InfluxDB machine to listen to other VMs and itself.
 5. Make sure that InfluxDB communication method is permitted in the firewall.
 
-##### 2.2.1.2. Telegraf
+#### 2.2.1.2. Telegraf
 
 1. Install Telegraf as package.
 2. Configure Telegraf for all the machines to send the data to InfluxDB. And to collect the most important metrics from the machines.
     - System resources: CPU, memory, disk and network. Is the basic metrics that we need to monitor.
 3. Manage the security of the Telegraf machine.
 
-##### 2.2.1.3. Grafana
+#### 2.2.1.3. Grafana
 
 1. Create a persistent volume for the data in the new disk.
 2. Pull the latest Grafana image.
@@ -191,20 +191,20 @@ Enchance the security of the containers and machines with **Trivy** and **linPEA
 
 8. Adjust **firewalld** rules for each interface as needed.
 
-#### 2.2.1. Second deployment
+### 2.2.1. Second deployment
 
 Integrate security tools in the monitoring stack and vm-monitor machine.
 
 1. Check containers and machines with **Trivy** and **linPEAS**.
 2. Check `audit2why` and activate **SELinux** enforcing.
 
-### 2.3. **Project 3: FreeIPA**
+## 2.3. **Project 3: FreeIPA**
 
 Take in count all the implementation is following FreeIPA CLI and UI enablers.
 
-#### 2.3.1. Pre-Deployment
+### 2.3.1. Pre-Deployment
 
-#### 2.3.2. First Deployment
+### 2.3.2. First Deployment
 
 The plan of implementation is to deploy the FreeIPA server in the `vm-freeipa` machine.
 
@@ -218,93 +218,4 @@ The plan of implementation is to deploy the FreeIPA server in the `vm-freeipa` m
 8. Configure sudo rules in FreeIPA to allow sysadmins and application-support groups to execute commands with sudo.
 9. Configure SSH rules in FreeIPA to allow sysadmins and application-support groups to access the machines via SSH.
 
-For further implementation details we have the next section based in security architecture design. With the user and host groups, domain access policies we are planning to implement:
-
-##### **User Groups and Host Classifications**
-
-1. **User Groups**
-    a. **Infrastructure**:
-      - **sysadmins:**  
-        - **Purpose**: Members in this group have unrestricted **sudo** abilities and full system management rights.
-        - **Rules**: They must have access to every interface and service (FreeIPA UI, Grafana, WikiJS, NetBox, and SSH on all hosts).
-      - **application-support:**
-        - **Purpose**: Members in this group only can execute sudo permissions on application-related commands (e.g., managing WikiJS, NetBox, Redis, and PostgreSQL).
-        - **Rules**:
-          - They can SSH into the application hosts (vm-wikijs-netbox, vm-reproxy) but not into management hosts (vm-monitor, vm-mgmt, vm-freeipa).
-          - They should not have access to the **FreeIPA UI**.
-
-    b. **Web UI**:
-      - **freeipa-ui-access:**  
-        - This group can be created to clearly delineate which users (usually overlapping with sysadmins) are allowed to interact with the FreeIPA UI.
-      - **grafana-ui-access:**  
-        - This group can be created to manage access to the Grafana interface.
-      - **wikijs-ui-access:**  
-        - This group can be created to manage access to the WikiJS interface.
-      - **netbox-ui-access:**  
-        - This group can be created to manage access to the NetBox interface.
-
-2. **Host Groups**
-   - **app-services-hosts**
-     - **vm-wikijs-netbox**: Hosts WikiJS, NetBox, and supporting services (e.g., Redis).
-     - **vm-reproxy**: Serves as the public/reverse proxy for WikiJS, NetBox, Grafana, and (if applicable) FreeIPA UI.
-   - **monitoring-hosts**
-     - **vm-monitor**: Dedicated to monitoring services (e.g., Prometheus, Grafana) and telemetry agents.
-   - **management-hosts**
-     - **vm-mgmt**: Used for administrative SSH access to manage the other VMs.
-     - **vm-freeipa**: Runs FreeIPA (including the UI, DNS, etc.); should be accessible only by authorized users.
-
----
-
-##### **Domain access policies**
-
-We begin this the design with not allowing any access to anything, we build the rules from the ground up, allowing only the necessary access for each user group and host.
-
-###### Sudo rules
-
-Define the sudo rules for each user group to ensure they have the necessary permissions without compromising security.
-
-**sysadmin_sudo:**
-
-- **Purpose**: Sudo allowance for sysadmins.
-- **Rules**:
-  - Allow all commands.
-- **User groups**:
-  - **sysadmins** group.
-- **Host groups**:
-  - All hosts; `app-services-hosts`, `management-hosts`, and `monitoring-hosts`.
-
----
-
-**application_sudo:**
-
-- **Purpose**: Sudo allowance for application-support group.
-- **Rules**:
-  - Allow specific commands related to application management.
-- **User groups**:
-  - **application-support** group.
-- **Host groups**:
-  - All application related hosts; `app-services-hosts` and **Grafana** UI only.
-
-#### SSH rules
-
-**sysadmin_ssh:**
-
-- **Purpose**: SSH access for sysadmins in all hosts.
-- **Rules**:
-- Allow SSH access to all hosts.
-- **User groups**:
-  - **sysadmins** group.
-- **Host groups**: 
-  - All hosts; `app-services-hosts`, `management-hosts`, and `monitoring-hosts`.
-
-**application_ssh:**
-
-- **Purpose**: SSH access for application-support group.
-- **Rules**:
-  - Allow SSH access to application hosts (vm-wikijs-netbox, vm-reproxy).
-- **User groups**:
-  - **application-support** group.
-- **Host groups**:
-  - All application related hosts; `app-services-hosts`.
-
----
+For further implementation details we have the next section based in security architecture design. With the user and host groups, domain access policies we are planning to implement: [Architecture Design Implementation - P3](Architecture-Design-Implementation-P3.md).

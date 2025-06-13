@@ -1,7 +1,7 @@
 
 # Troubleshooting
 
-## 1. Errors in my Podman containers
+## 1. Podman 
 
 ### 1.1. containers acquired locks ERROR
 
@@ -31,9 +31,9 @@ CONTAINER ID  IMAGE       COMMAND     CREATED     STATUS      PORTS       NAMES
 
     - Reference: https://github.com/containers/podman/issues/16784 
 
-### 1.2. Solutions provided
+#### Solutions provided
 
-#### 1.2.1. With systemd
+##### With systemd
 
 https://github.com/containers/podman/issues/16784#issuecomment-1913686983
 
@@ -85,7 +85,7 @@ Podman is a "daemonless" container engine. However, the `podman.service` systemd
 
 Now, the Podman service will remain active and listen for API requests on the specified port until explicitly stopped.
 
-#### 1.2.2. With podman non-rootuser
+##### With podman non-rootuser
 
 We take this approach to give a solution to the problem of the containers that are not running when you log out from the SSH session.
 
@@ -106,4 +106,30 @@ Replace `<username>` with the actual username running the containers.
 This command creates a file in `/var/lib/systemd/linger/` for the user, allowing their processes (including Podman containers) to continue running after logout, until explicitly stopped or the system is rebooted.
 
 > **Note:** If you are running Podman containers as root, consider using a systemd user service instead.
+
+### 1.2. Podman is not synced with FreeIPA users
+
+**Description**: 
+FreeIPA/LDAP users are not recognized by Podman, leading to errors when trying to run containers as those users.
+
+```bash
+[jorgediazsagot@vm-wikijs-netbox ~]$ podman ps
+ERRO[0000] cannot find UID/GID for user jorgediazsagot: no subuid ranges found for user "jorgediazsagot" in /etc/subuid - check rootless mode in man pages.
+WARN[0000] Using rootless single mapping into the namespace. This might break some images. Check /etc/subuid and /etc/subgid for adding sub*ids if not using a network user
+CONTAINER ID  IMAGE       COMMAND     CREATED     STATUS      PORTS       NAMES
+```
+
+**Investigation**:
+
+Podman requires subuid and subgid mappings for rootless containers. So we need to ensure that the FreeIPA users have appropriate entries in `/etc/subuid` and `/etc/subgid`.
+
+#### Solutions provided
+
+More info:
+https://github.com/containers/podman/discussions/16244
+
+We are not going to investigate the solution further, because this is the expected behavior we need with podman. Only the podman user is able to run containers, and the rest of the users are not able to run containers.
+
+So if you want to run containers as a FreeIPA user, you need to change user to the right user that has the subuid and subgid mappings.
+
 
