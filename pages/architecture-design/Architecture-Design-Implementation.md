@@ -1,7 +1,7 @@
 
 # 1. **Virtual Machine strategy**
 
-Section to define 
+Section to define the virtual machines that we are going to use in our infrastructure, and the purpose of each machine. Also the network interfaces and firewall rules for each machine.
 
 ## 1.1. **vm-mgmt**
 
@@ -219,3 +219,40 @@ The plan of implementation is to deploy the FreeIPA server in the `vm-freeipa` m
 9. Configure SSH rules in FreeIPA to allow sysadmins and application-support groups to access the machines via SSH.
 
 For further implementation details we have the next section based in security architecture design. With the user and host groups, domain access policies we are planning to implement: [Architecture Design Implementation - P3](Architecture-Design-Implementation-P3.md).
+
+## 2.4. **Project 4: Configuration Management**
+
+### 2.4.1. Pre-Deployment
+
+Prerequisites to be able to run the Ansible playbooks and manage the infrastructure with Ansible.
+
+1. DNS configuration is already done in the FreeIPA server. `vm-freeipa` machine.
+2. VM for Ansible control node is already created as `vm-mgmt`.
+3. Check VMs `SSH` access and connectivity for all machines in the infrastructure. Ansible needs SSH access to all machines to manage them.
+4. Check for if `ssh` user is already created in all machines. Ansible needs a user to connect to the machines. (sshuser)
+5. Check if already have a user with `sudo` privileges in all machines. Ansible needs `sudo` privileges to manage the machines for initial configuration and deployment. (admin-local)
+6. Check all the packages needed in VMs to run the actual state of the infrastructure. In future steps we will use Ansible to manage the packages and services in the VMs.
+7. Check `python`  in all machines. Ansible needs Python to run the playbooks and manage the machines.
+8. Backup the current state of the infrastructure, so we can restore it in case of any issues during the deployment process.
+
+### 2.4.2. First Deployment
+
+First configuration plan of Ansible to manage the infrastructure.
+
+1. Set up Ansible in the `vm-mgmt` machine. This will be the control node for Ansible.
+2. Configure Ansible inventory file to include all managed nodes.
+3. Set up **SSH key-based authentication** for passwordless access to managed nodes.
+4. Create Ansible playbooks to check the network connectivity between required nodes.
+5. Create Ansible playbooks to check firewall rules and ensure they are correctly configured.
+6. Create Ansible playbooks for initial package installation and configuration of the remote nodes.
+7. Create Ansible playbooks for managing the services in the remote nodes.
+
+To see the complete configuration management guide, see the [Configuration Management Guide](Architecture-Design-Implementation-P4.md).
+
+### 2.4.3. Second Deployment
+
+Here we are going to implement advanced Ansible features to manage the infrastructure. 
+
+1. Create Ansible roles for each service and machine.
+2. Increase the performance of the Ansible playbooks.
+3. 

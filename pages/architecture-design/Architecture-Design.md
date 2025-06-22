@@ -25,16 +25,15 @@ Will be a simple design to be able to experiment with the different tools.
     - [**1. Architecture Overview**](#1-architecture-overview)
       - [**1.1 Purpose**](#11-purpose)
       - [**1.2 Scope**](#12-scope)
-      - [**1.3 Objectives**](#13-objectives)
       - [**1.4 Audience**](#14-audience)
       - [**1.5 High level design**](#15-high-level-design)
     - [**2. Infrastructure Components**](#2-infrastructure-components)
       - [**2.1 Host Machine (Your PC)**](#21-host-machine-your-pc)
-      - [**2.3 Virtual Machines (6 VMs Total)**](#23-virtual-machines-6-vms-total)
+      - [**2.3 Virtual Machines (5 VMs Total)**](#23-virtual-machines-5-vms-total)
     - [**3. Network Design**](#3-network-design)
-      - [3.1 Network](#31-network)
-      - [3.2 Firewall](#32-firewall)
-      - [**3.3 Network dataflow**](#33-network-dataflow)
+      - [3.1. Network](#31-network)
+      - [3.2. Firewall](#32-firewall)
+      - [**3.3. Network dataflow**](#33-network-dataflow)
         - [IntNetMgmt Dataflow](#intnetmgmt-dataflow)
         - [IntNetSrv Dataflow](#intnetsrv-dataflow)
     - [**4. Toolchain**](#4-toolchain)
@@ -68,18 +67,14 @@ The design emphasizes security, network, implementation, and ease of management.
 
 #### **1.2 Scope**
 
-**Project 1**:
+**Project 1**
 
 - WikiJS, and Netbox containerized.
 - podman-compose for orchestration.
 - Security tools like Trivy, linPEAS and Lynis.
   - Reverse Proxy with NGINX to improve security posture.
 
-**Project 2**:
-
-- Monitoring stack with Telegraf, InfluxDB, and Grafana.
-
-#### **1.3 Objectives**
+**Objectives**
 
 The main objectives of this project are:
 
@@ -88,7 +83,43 @@ The main objectives of this project are:
 - Implement security tools like Trivy, linPEAS, and Lynis.
 - Use podman-compose for container orchestration.
 - Implement a reverse proxy with NGINX to improve security posture.
-- Implement a observability stack with Telegraf, InfluxDB, and Grafana.
+
+
+**Project 2**:
+
+- Monitoring stack with Telegraf, InfluxDB, and Grafana.
+
+**Objectives**
+
+The main objectives of this project are:
+
+- Implement a monitoring stack with Telegraf, InfluxDB, and Grafana.
+- Collect and visualize metrics from the other VMs.
+- Set up alerts and notifications for critical events.
+
+**Project 3**:
+
+- Domain Controller with FreeIPA.
+
+**Objectives**
+The main objectives of this project are:
+
+- Deploy FreeIPA as a domain controller.
+- Implement Host-Based Access Control (HBAC) policies.
+- Configure DNS services for the domain.
+- Configure LDAP and Kerberos for authentication in servers and services.
+
+**Project 4**:
+
+- Configuration Management with Ansible.
+
+**Objectives**
+The main objectives of this project are:
+
+- Implement Ansible playbooks for automating the deployment and configuration of the VMs.
+- Use Ansible roles to organize tasks and manage dependencies.
+- Define infrastructure desired state.
+- Integrate Ansible with the monitoring stack for automated alerts and reporting.
 
 #### **1.4 Audience**
 
@@ -111,46 +142,52 @@ This document is intended for they who are interested in learning about Podman, 
 - **OS**: Windows 10.
 - **Resources**: 6 CPU cores and 12 threads, 32GB RAM, 1.16 TB Storage.
 
-#### **2.3 Virtual Machines (6 VMs Total)**
+#### **2.3 Virtual Machines (5 VMs Total)**
 
 | VM Name | Purpose | OS | Resources |
 | :---- | :---- | :---- | :---- |
-| `vm-mgmt` | Just to manage the other VMs. Is the one we need to access with ssh to admin the others | Rocky Linux 9 | 1 vCPU, 1GB RAM, 8GB Storage |
-| `vm-reproxy` | Reverse Proxy (NGINX) for WikiJS/Netbox/Grafana/FreeIpaUI (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
-| `vm-wikijs-netbox` | Host WikiJS and NetBox containers (Podman). Plus services required Redis for Netbox | Rocky Linux 9 | 4 vCPU, 2GB RAM , 8GB Storage |
-| `vm-freeipa` | Have the domain controller FreeIPA with the UI and all the components including DNS | Rocky Linux 9 | 1 vCPU, 2GB RAM, 14GB Storage |
+| `vm-mgmt` | Just to manage the other VMs. Is the one we need to access with ssh to admin the others. Ansible will be here to admin | Rocky Linux 9 | 1 vCPU, 1GB RAM, 8GB Storage |
+| `vm-reproxy` | Reverse Proxy (NGINX) for WikiJS/Netbox/Grafana (future public IP readiness). | Rocky Linux 9 | 1 vCPU, 2GB RAM, 8GB Storage |
+| `vm-wikijs-netbox` | Host WikiJS and NetBox containers (Podman). Plus services required Redis(Podman) for Netbox, PostgreSQL(Podman) for Netbox and Wikijs | Rocky Linux 9 | 4 vCPU, 2GB RAM , 8GB Storage |
+| `vm-freeipa` | Have the domain controller FreeIPA with the UI and all the components including DNS to centrally manage all the authentication | Rocky Linux 9 | 1 vCPU, 2GB RAM, 14GB Storage |
 | `vm-monitor` | Host Telegraf, InfluxDB (Podman), and Grafana (Podman). | Rocky Linux 9 | 2 vCPU, 2GB RAM, 10GB Storage OS and 10GB Storage for InfluxDB data. |
 
 ---
 
 ### **3. Network Design**
 
-#### 3.1 Network
+#### 3.1. Network
 
 - **Home Network as Public Network** (ExtNetHome)
 
-Use NAT or bridged networking for `vm-podman-mgmt` and `vm-proxy` VMs. This is to be able to connect to the services.
+Use NAT Network of VirtualBox for `vm-mgmt`, `vm-proxy` and `vm-freeipa`. This is to be able to connect to the services.
 
 - **Private Internal Network Admin** (IntNetMgmt)
 
-Subnet that use `vm-mgmt` to manage all the nodes.
+Subnet that use `vm-mgmt` to manage all the nodes through SSH and Ansible. This network is isolated from the public network to enhance security.
+
+Also work, for **Telegraf** to collect metrics from the other VMs and send them to `vm-monitor`.
 
 - **Private Internal Network Services** (IntNetSrv)
 
-Subnet with the traffic of wikijs and netbox services, so then `vm-wikijs-netbox` and `vm-proxy`.
+Subnet with the traffic of **Wikijs** and **Netbox** services, so then `vm-wikijs-netbox` and `vm-reproxy`.
 
-#### 3.2 Firewall
+Also we include here the traffic of `vm-monitor` for **Grafana** client through `vm-reproxy`.
+
+#### 3.2. Firewall
 
 - In `ExtNetHome`:  
-  - For `vm-mgmt` allow **SSH** (port 2222), **Cockpit** (9090).  
-  - For `vm-proxy` allow **Web Traffic** only.  
+  - For `vm-mgmt` allow **SSH** (port 2222).  
+  - For `vm-reproxy` allow **Web Traffic** only.
+  - For `vm-freeipa` allow **FreeIPA UI** (port 443) and **DNS** (port 53).
 - In `IntNetMgmt`:  
-  - Allow access by SSH.  
+  - Allow access by SSH and Telegraf metrics collection.
 - In `IntNetSrv`:  
   - Allow access between services.  
-  - Allow only ports 3000 (WikiJS) and 8000 (Netbox) between `vm-proxy` and `vm-wikijs-netbox`
+  - Allow only ports WikiJS and Netbox between `vm-reproxy` and `vm-wikijs-netbox`
+  - Allow access to Grafana from `vm-reproxy` to `vm-monitor`.
 
-#### **3.3 Network dataflow**
+#### **3.3. Network dataflow**
 
 ##### IntNetMgmt Dataflow
 
@@ -164,6 +201,7 @@ Subnet with the traffic of wikijs and netbox services, so then `vm-wikijs-netbox
 
 | Tool | Purpose |
 | ---- | ---- |
+| Ansible | Configuration management and deployment automation. |
 | Podman | Container runtime (rootless mode). |
 | podman-compose | Container orchestration. |
 | SSH | Manage nodes manually. |
