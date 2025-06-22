@@ -1211,15 +1211,11 @@ services:
         AUTH_LDAP_BIND_PASSWORD: "your_password_here"
         AUTH_LDAP_USER_SEARCH_BASEDN: "cn=users,cn=accounts,dc=homelabdomain,dc=lan"
         AUTH_LDAP_GROUP_SEARCH_BASEDN: "cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
-        AUTH_LDAP_REQUIRE_GROUP_DN: "cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
-        AUTH_LDAP_IS_ADMIN_DN: "cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
-        AUTH_LDAP_IS_SUPERUSER_DN: "cn=netbox-web-superusers,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
         AUTH_LDAP_USER_SEARCH_ATTR: "uid"
-        AUTH_LDAP_GROUP_SEARCH_CLASS: "groupOfNames"
         AUTH_LDAP_GROUP_TYPE: "GroupOfNamesType"
         AUTH_LDAP_ATTR_LASTNAME: "sn"
         AUTH_LDAP_ATTR_FIRSTNAME: "givenName"
-        LDAP_IGNORE_CERT_ERRORS: "false"
+        LDAP_IGNORE_CERT_ERRORS: "False"
         ```
 
 1. So we need to run the Netbox with podman-compose with above configuration in environment variables.
@@ -1302,11 +1298,7 @@ services:
       - AUTH_LDAP_BIND_PASSWORD=your_password_here
       - AUTH_LDAP_USER_SEARCH_BASEDN=cn=users,cn=accounts,dc=homelabdomain,dc=lan
       - AUTH_LDAP_GROUP_SEARCH_BASEDN=cn=groups,cn=accounts,dc=homelabdomain,dc=lan
-      - AUTH_LDAP_REQUIRE_GROUP_DN=cn=groups,cn=accounts,dc=homelabdomain,dc=lan
-      - AUTH_LDAP_IS_ADMIN_DN=cn=netbox-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan
-      - AUTH_LDAP_IS_SUPERUSER_DN=cn=netbox-web-superusers,cn=groups,cn=accounts,dc=homelabdomain,dc=lan
       - AUTH_LDAP_USER_SEARCH_ATTR=uid
-      - AUTH_LDAP_GROUP_SEARCH_CLASS=groupOfNames
       - AUTH_LDAP_GROUP_TYPE=GroupOfNamesType
       - AUTH_LDAP_ATTR_LASTNAME=sn
       - AUTH_LDAP_ATTR_FIRSTNAME=givenName
@@ -1374,8 +1366,6 @@ secrets:
     external: true
 ```
 
-**IN PROGRESS**: IS not working yet, need to check the LDAP configuration in Netbox and debug it.
-
 ### Grafana
 
 We use the config file solution to add the LDAP authentication in Grafana, so we can use the FreeIPA users to log in to Grafana. As dicussed in the official documentation: [Grafana LDAP DOCS](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/ldap/).
@@ -1396,35 +1386,31 @@ We use the config file solution to add the LDAP authentication in Grafana, so we
     port = 389
     use_ssl = false
     start_tls = false
+    ssl_skip_verify = false
     bind_dn = "uid=ldapauth-grafana,cn=users,cn=accounts,dc=homelabdomain,dc=lan"
     bind_password = "your_password_here"
 
     search_filter = "(uid=%s)"
     search_base_dns = ["cn=users,cn=accounts,dc=homelabdomain,dc=lan"]
+    
+    # Specify names of the ldap attributes your ldap uses
+    [servers.attributes]
+    name = "givenName"
+    surname = "sn"
+    username = "uid"
+    member_of = "memberOf"
+    email =  "email"
+
+    #[[servers.group_mappings]]
+    #group_dn = "cn=grafana-web-admins,cn=groups,cn=accounts,#dc=homelabdomain,dc=lan"
+    #org_role = "Admin"
 
     [[servers.group_mappings]]
-    group_dn = "cn=grafana-web-admins,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
-    org_role = "Admin"
-
-    [[servers.group_mappings]]
-    group_dn = "cn=base-web,cn=groups,cn=accounts,dc=homelabdomain,dc=lan"
+    group_dn = "*"
     org_role = "Viewer"
     ```
 
-3. Then of saving that file, when you run the container, bind that file to the container by adding the following volume to the Grafana container.
-
-    ```bash
-    podman volume create monitor-set-grafana-ldap --opt type=none --opt device=/srv/grafana-ldap/ldap.toml --opt o=bind
-    ```
-
-4. Create a volume for Grafana data if you haven't done it yet:
-
-    ```bash
-    podman volume create monitor-set-grafana-ldap \
-        --opt type=none --opt device=/srv/grafana-ldap --opt o=bind
-    ```
-
-5. With this changes our podman run for granafa will look like this:
+3. With this changes our podman run for granafa will look like this:
 
     ```bash
     podman run -d \
@@ -1433,8 +1419,9 @@ We use the config file solution to add the LDAP authentication in Grafana, so we
         --ip 10.89.0.11 \
         -p 3000:3000 \
         -v monitor-set-grafana-data:/var/lib/grafana:Z \
-        -v monitor-set-grafana-ldap:/etc/grafana/:Z \
+        -v /srv/grafana-ldap/ldap.toml:/etc/grafana/ldap.toml:Z \
         -e "GF_AUTH_LDAP_ENABLED=true" \
+        -e "GF_AUTH_LDAP_CONFIG_FILE=/etc/grafana/ldap.toml" \
         --restart=unless-stopped \
         grafana/grafana-oss:12.0.1
     ```
