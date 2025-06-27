@@ -255,4 +255,3 @@ Here we are going to implement advanced Ansible features to manage the infrastru
 
 1. Create Ansible roles for each service and machine.
 2. Increase the performance of the Ansible playbooks.
-3. 
